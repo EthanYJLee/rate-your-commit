@@ -1,0 +1,19 @@
+{
+  "name": "@rateyourcommit/worker",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Scheduled sync jobs that pull commits/tickets via packages/connectors and write normalized rows via packages/db.",
+  "scripts": {
+    "start": "node --loader ts-node/esm src/index.ts",
+    "dev": "node --loader ts-node/esm --watch src/index.ts"
+  },
+  "dependencies": {
+    "@rateyourcommit/connectors": "*",
+    "@rateyourcommit/db": "*"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.4",
+    "ts-node": "^10.9.2",
+    "@types/node": "^20.14.15"
+  }
+}

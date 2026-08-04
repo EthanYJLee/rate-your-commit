@@ -1,0 +1,39 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-rateyourcommit}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-rateyourcommit}
+      POSTGRES_DB: ${POSTGRES_DB:-rateyourcommit}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-rateyourcommit}:${POSTGRES_PASSWORD:-rateyourcommit}@postgres:5432/${POSTGRES_DB:-rateyourcommit}
+    ports:
+      - "3000:3000"
+    depends_on:
+      - postgres
+
+  worker:
+    build:
+      context: .
+      dockerfile: apps/worker/Dockerfile
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-rateyourcommit}:${POSTGRES_PASSWORD:-rateyourcommit}@postgres:5432/${POSTGRES_DB:-rateyourcommit}
+    depends_on:
+      - postgres
+
+volumes:
+  postgres_data:

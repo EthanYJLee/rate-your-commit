@@ -1,0 +1,123 @@
+// RateYourCommit core data model — see docs/ARCHITECTURE.md §3.
+// Field names are deliberately plain-language: a non-developer admin
+// should be able to read this file and understand what's tracked.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// A real individual in the organization. The canonical entity that
+/// all scattered git identities get merged into via S-07.
+model Person {
+  id          String     @id @default(cuid())
+  displayName String
+  employeeId  String?    @unique
+  identities  Identity[]
+  scores      ScoreResult[]
+  createdAt   DateTime   @default(now())
+}
+
+enum IdentityStatus {
+  confirmed
+  pending
+  shared_account
+  unresolved
+}
+
+/// One git-author identity (name + email combo) as it literally
+/// appears in commit history. Many can map to one Person.
+model Identity {
+  id        String         @id @default(cuid())
+  handle    String
+  email     String?
+  status    IdentityStatus @default(pending)
+  person    Person?        @relation(fields: [personId], references: [id])
+  personId  String?
+  commits   Commit[]
+  createdAt DateTime       @default(now())
+
+  @@unique([handle, email])
+}
+
+model Project {
+  id                String   @id @default(cuid())
+  name              String
+  connectorId       String   // e.g. "github", "gitlab"
+  externalRef       String   // e.g. "org/repo"
+  difficultyFactor  Float    @default(1.0)
+  commits           Commit[]
+  tickets           Ticket[]
+  createdAt         DateTime @default(now())
+
+  @@unique([connectorId, externalRef])
+}
+
+model Commit {
+  id            String    @id @default(cuid())
+  sha           String
+  message       String
+  additions     Int
+  deletions     Int
+  authoredAt    DateTime
+  /// Set true when this commit is excluded from scoring (e.g. a
+  /// 12M-line "restore" commit) — see docs/ARCHITECTURE.md §4.
+  excludedFlag  Boolean   @default(false)
+  excludedReason String?
+  identity      Identity  @relation(fields: [identityId], references: [id])
+  identityId    String
+  project       Project   @relation(fields: [projectId], references: [id])
+  projectId     String
+
+  @@unique([projectId, sha])
+}
+
+model Ticket {
+  id         String    @id @default(cuid())
+  externalId String
+  title      String
+  status     String
+  createdAt  DateTime
+  closedAt   DateTime?
+  project    Project   @relation(fields: [projectId], references: [id])
+  projectId  String
+
+  @@unique([projectId, externalId])
+}
+
+/// Organization-configurable weights fed into
+/// packages/scoring#calculateScore. Never hardcoded — always read
+/// from here.
+model ScoreWeightConfig {
+  id             String   @id @default(cuid())
+  organizationId String
+  delivery       Float
+  quality        Float
+  collaboration  Float
+  evaluation     Float
+  effectiveFrom  DateTime @default(now())
+}
+
+/// A computed, immutable snapshot of one person's score for one
+/// period. Recomputable at any time from Commit/Ticket data plus the
+/// ScoreWeightConfig in effect — never edited in place.
+model ScoreResult {
+  id           String   @id @default(cuid())
+  person       Person   @relation(fields: [personId], references: [id])
+  personId     String
+  periodStart  DateTime
+  periodEnd    DateTime
+  delivery     Float
+  quality      Float
+  collaboration Float
+  evaluation   Float
+  finalScore   Float
+  grade        String
+  calculatedAt DateTime @default(now())
+
+  @@unique([personId, periodStart, periodEnd])
+}
