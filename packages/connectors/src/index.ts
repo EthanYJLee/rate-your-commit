@@ -9,6 +9,9 @@ export { GitHubConnector, GitHubConnectorError } from "./github";
 export type {
   GitHubConnectorOptions,
   OctokitLike,
+  ContributorWeek,
+  ContributorWeeklyStats,
+  ContributorStatsResult,
 } from "./github";
 export { GitHubIssuesConnector } from "./github/issues";
 export type {

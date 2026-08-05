@@ -12,9 +12,16 @@
  *   4. Upsert a Ticket row per GitHub issue (PRs excluded — see
  *      packages/connectors/src/github/issues.ts). Not yet consumed by
  *      any scoring/aggregation code; this just lands the raw data.
+ *   5. S-04: fetch weekly per-author contributor stats, run them
+ *      through packages/metrics#detectOutlierWeeks, and flag every
+ *      Commit in a flagged author-week as excluded (see that
+ *      package's docstring for why the grain is "author-week", not
+ *      "single commit").
  */
 import { GitHubConnector, GitHubIssuesConnector } from "@rateyourcommit/connectors";
 import type { RawIdentity, RawTicket } from "@rateyourcommit/connectors";
+import { detectOutlierWeeks } from "@rateyourcommit/metrics";
+import type { OutlierWeek } from "@rateyourcommit/metrics";
 import { prisma } from "@rateyourcommit/db";
 
 const SYNC_INTERVAL_MS = 15 * 60 * 1000; // 15 minutes
@@ -87,6 +94,40 @@ async function persistTickets(projectId: string, tickets: RawTicket[]): Promise<
   return tickets.length;
 }
 
+/**
+ * Applies S-04 outlier-week flags to every Commit an author made
+ * within a flagged week. Matches by Identity.handle rather than a
+ * single identityId, since one GitHub login can legitimately map to
+ * more than one Identity row (different commit-author emails).
+ * Exported for unit testing.
+ */
+export async function applyOutlierFlags(
+  projectId: string,
+  outlierWeeks: OutlierWeek[]
+): Promise<number> {
+  let flaggedCount = 0;
+
+  for (const week of outlierWeeks) {
+    const identities = await prisma.identity.findMany({
+      where: { handle: week.authorHandle },
+      select: { id: true },
+    });
+    if (identities.length === 0) continue;
+
+    const result = await prisma.commit.updateMany({
+      where: {
+        projectId,
+        identityId: { in: identities.map((identity) => identity.id) },
+        authoredAt: { gte: week.weekStart, lt: week.weekEnd },
+      },
+      data: { excludedFlag: true, excludedReason: week.reason },
+    });
+    flaggedCount += result.count;
+  }
+
+  return flaggedCount;
+}
+
 async function runSync(): Promise<void> {
   const token = process.env.GITHUB_TOKEN;
   const repoSlug = process.env.GITHUB_REPOSITORY; // "owner/repo"
@@ -110,18 +151,30 @@ async function runSync(): Promise<void> {
       create: { name: repoSlug, connectorId: "github", externalRef: repoSlug },
     });
 
-    const [authors, commits, tickets] = await Promise.all([
+    const [authors, commits, tickets, contributorStats] = await Promise.all([
       connector.fetchAuthors(),
       connector.fetchCommits(new Date(0)), // full history — see docs/ARCHITECTURE.md decision log
       issuesConnector.fetchTickets(new Date(0)), // full history, same rationale
+      connector.fetchContributorStats(), // S-04 — see applyOutlierFlags
     ]);
 
     const { identityCount, commitCount } = await persist(project.id, authors, commits);
     const ticketCount = await persistTickets(project.id, tickets);
 
+    let flaggedCommitCount = 0;
+    if (contributorStats.status === "ready") {
+      const outlierWeeks = detectOutlierWeeks(contributorStats.stats);
+      flaggedCommitCount = await applyOutlierFlags(project.id, outlierWeeks);
+    } else {
+      console.log(
+        `[worker] contributor stats not ready yet for ${owner}/${repo} (GitHub still computing) — ` +
+          `will retry next sync tick`
+      );
+    }
+
     console.log(
       `[worker] synced ${owner}/${repo}: ${identityCount} identities, ${commitCount} commits, ` +
-        `${ticketCount} tickets persisted`
+        `${ticketCount} tickets persisted, ${flaggedCommitCount} commits flagged as LOC outliers`
     );
   } catch (err) {
     console.error("[worker] sync failed:", err);
@@ -134,7 +187,14 @@ async function main(): Promise<void> {
   setInterval(runSync, SYNC_INTERVAL_MS);
 }
 
-main().catch((err) => {
-  console.error("[worker] fatal error", err);
-  process.exit(1);
-});
+// Guard so importing this module for tests (e.g. to unit-test
+// applyOutlierFlags) doesn't also kick off main()'s setInterval loop.
+const isDirectExecution =
+  process.argv[1] !== undefined && import.meta.url === `file://${process.argv[1]}`;
+
+if (isDirectExecution) {
+  main().catch((err) => {
+    console.error("[worker] fatal error", err);
+    process.exit(1);
+  });
+}

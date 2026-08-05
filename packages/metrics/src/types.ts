@@ -1,0 +1,30 @@
+/**
+ * Local input shapes for this package's aggregation functions. Kept
+ * independent of @rateyourcommit/connectors on purpose — this package
+ * has no I/O and shouldn't depend on how the data was fetched, only
+ * on its (structurally identical) shape. See docs/ARCHITECTURE.md §4:
+ * the same "pure function, explainable, auditable" principle applied
+ * to packages/scoring extends here.
+ */
+
+export interface WeeklyActivity {
+  weekStart: Date;
+  additions: number;
+  deletions: number;
+  commits: number;
+}
+
+export interface AuthorWeeklyStats {
+  authorHandle: string;
+  weeks: WeeklyActivity[];
+}
+
+export interface OutlierWeek {
+  authorHandle: string;
+  weekStart: Date;
+  /** Exclusive end of the week window (weekStart + 7 days). */
+  weekEnd: Date;
+  totalLines: number;
+  medianLines: number;
+  reason: string;
+}

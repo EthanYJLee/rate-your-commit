@@ -1,0 +1,15 @@
+{
+  "name": "@rateyourcommit/metrics",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Pure aggregation functions over raw connector data (contributor stats, commits, tickets). No I/O, no DB — see docs/ARCHITECTURE.md §3-4. First consumer: S-04 LOC-outlier week detection.",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.4",
+    "vitest": "^4.1.0"
+  }
+}

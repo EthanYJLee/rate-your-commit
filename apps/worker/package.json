@@ -5,15 +5,18 @@
   "description": "Scheduled sync jobs that pull commits/tickets via packages/connectors and write normalized rows via packages/db.",
   "scripts": {
     "start": "tsx src/index.ts",
-    "dev": "tsx watch src/index.ts"
+    "dev": "tsx watch src/index.ts",
+    "test": "vitest run"
   },
   "dependencies": {
     "@rateyourcommit/connectors": "*",
-    "@rateyourcommit/db": "*"
+    "@rateyourcommit/db": "*",
+    "@rateyourcommit/metrics": "*"
   },
   "devDependencies": {
     "typescript": "^5.5.4",
     "tsx": "^4.19.1",
-    "@types/node": "^20.14.15"
+    "@types/node": "^20.14.15",
+    "vitest": "^4.1.0"
   }
 }
