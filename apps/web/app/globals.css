@@ -30,6 +30,8 @@
   --danger-soft: #fbe9e8;
   --success: #1a7a4c;
   --success-soft: #e6f4ec;
+  --warning: #8a5a10;
+  --warning-soft: #faf0dd;
 
   /* Grade badges — muted, not traffic-light saturated */
   --grade-s: #1a7a4c;
@@ -73,6 +75,8 @@
     --danger-soft: #3a1f1e;
     --success: #6fcf9b;
     --success-soft: #16321f;
+    --warning: #d8c477;
+    --warning-soft: #33301a;
 
     --grade-s: #6fcf9b;
     --grade-s-soft: #16321f;
@@ -467,6 +471,21 @@ a.stat-card:hover {
   padding: .6rem .8rem;
   margin-bottom: 1.5rem;
   font-size: .88rem;
+}
+
+.warning-banner {
+  color: var(--warning);
+  background: var(--warning-soft);
+  border: 1px solid currentColor;
+  border-radius: var(--radius-sm);
+  padding: .6rem .8rem;
+  margin-bottom: 1.5rem;
+  font-size: .88rem;
+}
+
+.warning-banner a {
+  color: inherit;
+  text-decoration: underline;
 }
 
 .empty-state {
