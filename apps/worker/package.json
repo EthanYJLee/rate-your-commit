@@ -11,7 +11,8 @@
   "dependencies": {
     "@rateyourcommit/connectors": "*",
     "@rateyourcommit/db": "*",
-    "@rateyourcommit/metrics": "*"
+    "@rateyourcommit/metrics": "*",
+    "@rateyourcommit/scoring": "*"
   },
   "devDependencies": {
     "typescript": "^5.5.4",

@@ -6,6 +6,25 @@
  * the same "pure function, explainable, auditable" principle applied
  * to packages/scoring extends here.
  */
+export type { AxisMetrics } from "@rateyourcommit/scoring";
+
+/** The subset of Commit fields computeAxisMetrics' quality calc needs. */
+export interface CommitForMetrics {
+  authoredAt: Date;
+  excludedFlag: boolean;
+}
+
+/** The subset of Ticket fields computeAxisMetrics' delivery calc needs. */
+export interface TicketForMetrics {
+  createdAt: Date;
+  closedAt?: Date;
+}
+
+export interface PeriodRange {
+  start: Date;
+  /** Exclusive — matches the OutlierWeek.weekEnd convention below. */
+  end: Date;
+}
 
 export interface WeeklyActivity {
   weekStart: Date;

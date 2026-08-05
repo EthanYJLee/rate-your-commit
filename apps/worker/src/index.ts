@@ -17,12 +17,26 @@
  *      Commit in a flagged author-week as excluded (see that
  *      package's docstring for why the grain is "author-week", not
  *      "single commit").
+ *   6. S-02: recompute a ScoreResult for every Person with any
+ *      tracked activity, for the current calendar month. Idempotent
+ *      upsert, so re-running mid-month just refreshes the same
+ *      snapshot (see ScoreResult's schema comment).
  */
 import { GitHubConnector, GitHubIssuesConnector } from "@rateyourcommit/connectors";
 import type { RawIdentity, RawTicket } from "@rateyourcommit/connectors";
-import { detectOutlierWeeks } from "@rateyourcommit/metrics";
-import type { OutlierWeek } from "@rateyourcommit/metrics";
+import { computeAxisMetrics, detectOutlierWeeks } from "@rateyourcommit/metrics";
+import type { OutlierWeek, PeriodRange } from "@rateyourcommit/metrics";
+import { assignGrade, calculateScore } from "@rateyourcommit/scoring";
+import type { AxisWeights } from "@rateyourcommit/scoring";
 import { prisma } from "@rateyourcommit/db";
+
+/**
+ * Single-tenant MVP: there's no multi-org auth yet (self-hosted,
+ * small-team target — docs/ARCHITECTURE.md §1), so every
+ * ScoreWeightConfig belongs to this one fixed organization until
+ * multi-org support exists.
+ */
+const DEFAULT_ORGANIZATION_ID = "default";
 
 const SYNC_INTERVAL_MS = 15 * 60 * 1000; // 15 minutes
 
@@ -151,6 +165,82 @@ export async function applyOutlierFlags(
   return flaggedCount;
 }
 
+/** The current UTC calendar month, as a [start, end) PeriodRange. */
+function currentMonthPeriod(): PeriodRange {
+  const now = new Date();
+  return {
+    start: new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)),
+    end: new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1)),
+  };
+}
+
+/**
+ * Fetches the org's current weights, creating a default config
+ * (delivery/quality split evenly, collaboration/evaluation at 0 since
+ * neither has a real data source yet — see packages/metrics#
+ * UNIMPLEMENTED_AXIS_PLACEHOLDER) the first time this ever runs.
+ */
+async function getOrCreateWeightConfig(): Promise<AxisWeights> {
+  const existing = await prisma.scoreWeightConfig.findFirst({
+    where: { organizationId: DEFAULT_ORGANIZATION_ID },
+    orderBy: { effectiveFrom: "desc" },
+  });
+  if (existing) return existing;
+
+  return prisma.scoreWeightConfig.create({
+    data: {
+      organizationId: DEFAULT_ORGANIZATION_ID,
+      delivery: 50,
+      quality: 50,
+      collaboration: 0,
+      evaluation: 0,
+    },
+  });
+}
+
+/**
+ * Recomputes and upserts this month's ScoreResult for every Person
+ * with any tracked activity (skips people with zero commits/tickets
+ * ever — nothing to score yet, not "scored 100/S by default").
+ * Aggregates across ALL of a person's linked Identities, since one
+ * person can have more than one (see persistTickets' doc comment).
+ * Exported for unit testing.
+ */
+export async function computeAndPersistScores(): Promise<number> {
+  const weights = await getOrCreateWeightConfig();
+  const period = currentMonthPeriod();
+
+  const people = await prisma.person.findMany({
+    include: { identities: { include: { commits: true, tickets: true } } },
+  });
+
+  let scoredCount = 0;
+  for (const person of people) {
+    const commits = person.identities.flatMap((identity) => identity.commits);
+    const tickets = person.identities.flatMap((identity) => identity.tickets);
+    if (commits.length === 0 && tickets.length === 0) continue;
+
+    const metrics = computeAxisMetrics(commits, tickets, period);
+    const finalScore = calculateScore(metrics, weights);
+    const grade = assignGrade(finalScore);
+
+    await prisma.scoreResult.upsert({
+      where: {
+        personId_periodStart_periodEnd: {
+          personId: person.id,
+          periodStart: period.start,
+          periodEnd: period.end,
+        },
+      },
+      update: { ...metrics, finalScore, grade },
+      create: { personId: person.id, periodStart: period.start, periodEnd: period.end, ...metrics, finalScore, grade },
+    });
+    scoredCount += 1;
+  }
+
+  return scoredCount;
+}
+
 async function runSync(): Promise<void> {
   const token = process.env.GITHUB_TOKEN;
   const repoSlug = process.env.GITHUB_REPOSITORY; // "owner/repo"
@@ -195,9 +285,12 @@ async function runSync(): Promise<void> {
       );
     }
 
+    const scoredCount = await computeAndPersistScores();
+
     console.log(
       `[worker] synced ${owner}/${repo}: ${identityCount} identities, ${commitCount} commits, ` +
-        `${ticketCount} tickets persisted, ${flaggedCommitCount} commits flagged as LOC outliers`
+        `${ticketCount} tickets persisted, ${flaggedCommitCount} commits flagged as LOC outliers, ` +
+        `${scoredCount} people scored for the current period`
     );
   } catch (err) {
     console.error("[worker] sync failed:", err);

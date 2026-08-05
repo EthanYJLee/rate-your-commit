@@ -8,6 +8,9 @@
   "scripts": {
     "test": "vitest run"
   },
+  "dependencies": {
+    "@rateyourcommit/scoring": "*"
+  },
   "devDependencies": {
     "typescript": "^5.5.4",
     "vitest": "^4.1.0"
