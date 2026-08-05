@@ -75,17 +75,40 @@ async function persist(
   return { identityCount: identityIdByKey.size, commitCount };
 }
 
-async function persistTickets(projectId: string, tickets: RawTicket[]): Promise<number> {
+/**
+ * Resolves (or creates) the Identity for a ticket's assignee, keyed
+ * by (handle, email: null) — the same dedup key `persist()` uses for
+ * commit authors. A person can end up with more than one Identity row
+ * this way (e.g. one from commits with a real email, one from
+ * ticket-assignee with a null email) — that's the same identity
+ * fragmentation S-07's merge screen already exists to resolve
+ * manually, not a new problem this introduces.
+ */
+async function resolveAssigneeIdentityId(handle: string | undefined): Promise<string | undefined> {
+  if (!handle) return undefined;
+
+  const identity = await prisma.identity.upsert({
+    where: { handle_email: { handle, email: null } },
+    update: {},
+    create: { handle },
+  });
+  return identity.id;
+}
+
+export async function persistTickets(projectId: string, tickets: RawTicket[]): Promise<number> {
   for (const ticket of tickets) {
+    const identityId = await resolveAssigneeIdentityId(ticket.assigneeHandle);
+
     await prisma.ticket.upsert({
       where: { projectId_externalId: { projectId, externalId: ticket.id } },
-      update: { title: ticket.title, status: ticket.status, closedAt: ticket.closedAt },
+      update: { title: ticket.title, status: ticket.status, closedAt: ticket.closedAt, identityId },
       create: {
         externalId: ticket.id,
         title: ticket.title,
         status: ticket.status,
         createdAt: ticket.createdAt,
         closedAt: ticket.closedAt,
+        identityId,
         projectId,
       },
     });

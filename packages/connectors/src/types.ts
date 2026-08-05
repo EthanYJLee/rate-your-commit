@@ -39,6 +39,12 @@ export interface RawTicket {
   status: string;
   createdAt: Date;
   closedAt?: Date;
+  /**
+   * Provider-native login/username of the (primary) assignee, if any.
+   * Multi-assignee trackers only surface the first one — see
+   * GitHubIssuesConnector. Undefined means unassigned, not unknown.
+   */
+  assigneeHandle?: string;
 }
 
 export interface SourceConnector {

@@ -10,6 +10,7 @@ const ISSUES_AND_PRS = [
     state: "closed",
     created_at: "2026-01-01T00:00:00Z",
     closed_at: "2026-01-05T00:00:00Z",
+    assignee: { login: "alice" },
   },
   {
     number: 2,
@@ -17,6 +18,7 @@ const ISSUES_AND_PRS = [
     state: "open",
     created_at: "2026-01-02T00:00:00Z",
     closed_at: null,
+    assignee: null,
   },
   // A pull request — GitHub's issues endpoint returns these too,
   // flagged by a non-null pull_request field. Must be excluded.
@@ -66,6 +68,19 @@ describe("GitHubIssuesConnector.fetchTickets", () => {
     expect(closed?.closedAt).toEqual(new Date("2026-01-05T00:00:00Z"));
     expect(open?.status).toBe("open");
     expect(open?.closedAt).toBeUndefined();
+  });
+
+  it("maps the primary assignee's login, leaving unassigned tickets undefined", async () => {
+    const connector = new GitHubIssuesConnector({
+      owner: "acme",
+      repo: "widgets",
+      octokit: fakeOctokit(),
+    });
+
+    const tickets = await connector.fetchTickets(new Date("2020-01-01"));
+
+    expect(tickets.find((t) => t.id === "1")?.assigneeHandle).toBe("alice");
+    expect(tickets.find((t) => t.id === "2")?.assigneeHandle).toBeUndefined();
   });
 
   it("throws GitHubConnectorError with a clear message when the API call fails", async () => {

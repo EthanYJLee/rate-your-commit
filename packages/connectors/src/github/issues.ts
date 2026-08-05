@@ -31,6 +31,8 @@ interface GitHubIssueListItem {
   closed_at: string | null;
   /** Present (non-null) on pull requests; GitHub's issues endpoint returns both. */
   pull_request?: unknown;
+  /** Primary assignee; GitHub also has a multi-assignee `assignees` array, not used here. */
+  assignee: { login: string } | null;
 }
 
 /**
@@ -89,6 +91,7 @@ export class GitHubIssuesConnector implements TrackerConnector {
         status: issue.state,
         createdAt: new Date(issue.created_at),
         closedAt: issue.closed_at ? new Date(issue.closed_at) : undefined,
+        assigneeHandle: issue.assignee?.login,
       }));
   }
 }

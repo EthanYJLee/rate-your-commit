@@ -39,6 +39,9 @@ model Identity {
   person    Person?        @relation(fields: [personId], references: [id])
   personId  String?
   commits   Commit[]
+  /// Tickets this identity is the (primary) GitHub assignee for —
+  /// see GitHubIssuesConnector / RawTicket.assigneeHandle.
+  tickets   Ticket[]
   createdAt DateTime       @default(now())
 
   @@unique([handle, email])
@@ -85,6 +88,11 @@ model Ticket {
   closedAt   DateTime?
   project    Project   @relation(fields: [projectId], references: [id])
   projectId  String
+  /// The (primary) assignee, when the source connector reports one.
+  /// Null when unassigned — see S-02 delivery-axis aggregation, which
+  /// can only attribute a ticket to a person once this is set.
+  identity   Identity? @relation(fields: [identityId], references: [id])
+  identityId String?
 
   @@unique([projectId, externalId])
 }
