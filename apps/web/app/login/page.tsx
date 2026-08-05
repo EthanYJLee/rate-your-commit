@@ -1,6 +1,13 @@
-import { signIn } from "../../auth";
+import { redirect } from "next/navigation";
+import { auth, signIn } from "../../auth";
 
-export default function LoginPage() {
+export default async function LoginPage() {
+  // Already signed in (e.g. revisited /login directly, or the OAuth
+  // flow completed but redirectTo below wasn't set yet on an older
+  // build) — don't show the login form again.
+  const session = await auth();
+  if (session) redirect("/");
+
   return (
     <main className="page page--center">
       <p className="eyebrow" style={{ justifyContent: "center" }}>
@@ -14,7 +21,11 @@ export default function LoginPage() {
       <form
         action={async () => {
           "use server";
-          await signIn("github");
+          // Without an explicit redirectTo, Auth.js sends the user back
+          // to wherever they started the sign-in flow from — which is
+          // /login itself, making a successful login look like nothing
+          // happened.
+          await signIn("github", { redirectTo: "/" });
         }}
       >
         <button type="submit" className="button button--primary" style={{ padding: ".7rem 1.6rem", fontSize: "1rem" }}>
