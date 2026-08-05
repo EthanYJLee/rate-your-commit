@@ -10,3 +10,8 @@ export type {
   GitHubConnectorOptions,
   OctokitLike,
 } from "./github";
+export { GitHubIssuesConnector } from "./github/issues";
+export type {
+  GitHubIssuesConnectorOptions,
+  IssuesOctokitLike,
+} from "./github/issues";

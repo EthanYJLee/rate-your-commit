@@ -1,5 +1,5 @@
 /**
- * Sync worker entrypoint. Fetches commits/authors via
+ * Sync worker entrypoint. Fetches commits/authors/tickets via
  * packages/connectors and persists them via packages/db.
  *
  * Persistence model per sync tick:
@@ -9,9 +9,12 @@
  *      here auto-links an Identity to a Person; that's a human
  *      decision made in the S-07 UI).
  *   3. Upsert a Commit row per commit, linked to its Identity.
+ *   4. Upsert a Ticket row per GitHub issue (PRs excluded — see
+ *      packages/connectors/src/github/issues.ts). Not yet consumed by
+ *      any scoring/aggregation code; this just lands the raw data.
  */
-import { GitHubConnector } from "@rateyourcommit/connectors";
-import type { RawIdentity } from "@rateyourcommit/connectors";
+import { GitHubConnector, GitHubIssuesConnector } from "@rateyourcommit/connectors";
+import type { RawIdentity, RawTicket } from "@rateyourcommit/connectors";
 import { prisma } from "@rateyourcommit/db";
 
 const SYNC_INTERVAL_MS = 15 * 60 * 1000; // 15 minutes
@@ -65,6 +68,25 @@ async function persist(
   return { identityCount: identityIdByKey.size, commitCount };
 }
 
+async function persistTickets(projectId: string, tickets: RawTicket[]): Promise<number> {
+  for (const ticket of tickets) {
+    await prisma.ticket.upsert({
+      where: { projectId_externalId: { projectId, externalId: ticket.id } },
+      update: { title: ticket.title, status: ticket.status, closedAt: ticket.closedAt },
+      create: {
+        externalId: ticket.id,
+        title: ticket.title,
+        status: ticket.status,
+        createdAt: ticket.createdAt,
+        closedAt: ticket.closedAt,
+        projectId,
+      },
+    });
+  }
+
+  return tickets.length;
+}
+
 async function runSync(): Promise<void> {
   const token = process.env.GITHUB_TOKEN;
   const repoSlug = process.env.GITHUB_REPOSITORY; // "owner/repo"
@@ -78,6 +100,7 @@ async function runSync(): Promise<void> {
 
   const [owner, repo] = repoSlug.split("/");
   const connector = new GitHubConnector({ owner, repo, token });
+  const issuesConnector = new GitHubIssuesConnector({ owner, repo, token });
 
   console.log(`[worker] syncing ${owner}/${repo}...`);
   try {
@@ -87,15 +110,18 @@ async function runSync(): Promise<void> {
       create: { name: repoSlug, connectorId: "github", externalRef: repoSlug },
     });
 
-    const [authors, commits] = await Promise.all([
+    const [authors, commits, tickets] = await Promise.all([
       connector.fetchAuthors(),
       connector.fetchCommits(new Date(0)), // full history — see docs/ARCHITECTURE.md decision log
+      issuesConnector.fetchTickets(new Date(0)), // full history, same rationale
     ]);
 
     const { identityCount, commitCount } = await persist(project.id, authors, commits);
+    const ticketCount = await persistTickets(project.id, tickets);
 
     console.log(
-      `[worker] synced ${owner}/${repo}: ${identityCount} identities, ${commitCount} commits persisted`
+      `[worker] synced ${owner}/${repo}: ${identityCount} identities, ${commitCount} commits, ` +
+        `${ticketCount} tickets persisted`
     );
   } catch (err) {
     console.error("[worker] sync failed:", err);
