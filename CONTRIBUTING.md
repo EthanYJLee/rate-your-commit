@@ -9,8 +9,11 @@
 
 ```bash
 npm install
+cp apps/web/.env.example apps/web/.env   # Next.js는 apps/web/ 안의 .env만 읽습니다 (모노레포 루트 .env 아님)
 npm run dev -w apps/web
 ```
+
+`apps/web/.env`엔 로컬 Postgres 접속 정보와 (GitHub 로그인을 테스트하려면) `AUTH_GITHUB_ID`/`AUTH_GITHUB_SECRET`/`ALLOWED_GITHUB_LOGINS`가 필요합니다. `docker compose up`으로 실행할 때는 이 파일이 필요 없습니다 — 그 경로는 루트 `.env`를 컨테이너 환경변수로 직접 주입합니다.
 
 ## 저장소 구조
 
