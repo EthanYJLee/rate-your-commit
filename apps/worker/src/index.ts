@@ -24,8 +24,8 @@
  */
 import { GitHubConnector, GitHubIssuesConnector } from "@rateyourcommit/connectors";
 import type { RawIdentity, RawTicket } from "@rateyourcommit/connectors";
-import { computeAxisMetrics, detectOutlierWeeks } from "@rateyourcommit/metrics";
-import type { OutlierWeek, PeriodRange } from "@rateyourcommit/metrics";
+import { computeAxisMetrics, currentMonthPeriod, detectOutlierWeeks } from "@rateyourcommit/metrics";
+import type { OutlierWeek } from "@rateyourcommit/metrics";
 import { assignGrade, calculateScore } from "@rateyourcommit/scoring";
 import type { AxisWeights } from "@rateyourcommit/scoring";
 import { prisma } from "@rateyourcommit/db";
@@ -163,15 +163,6 @@ export async function applyOutlierFlags(
   }
 
   return flaggedCount;
-}
-
-/** The current UTC calendar month, as a [start, end) PeriodRange. */
-function currentMonthPeriod(): PeriodRange {
-  const now = new Date();
-  return {
-    start: new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)),
-    end: new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1)),
-  };
 }
 
 /**

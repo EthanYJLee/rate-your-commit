@@ -4,6 +4,7 @@ export {
   NO_ACTIVITY_DEFAULT,
   UNIMPLEMENTED_AXIS_PLACEHOLDER,
 } from "./computeAxisMetrics";
+export { currentMonthPeriod } from "./currentMonthPeriod";
 export type {
   AuthorWeeklyStats,
   WeeklyActivity,

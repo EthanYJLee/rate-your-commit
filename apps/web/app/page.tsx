@@ -24,8 +24,9 @@ export default function HomePage() {
       </h1>
       <p style={{ color: "var(--ink-soft)" }}>
         아직 대시보드 전체는 준비 중입니다. 지금 실제로 동작하는 화면은{" "}
-        <a href="/identities">아이덴티티 매핑 큐(S-07)</a> 하나입니다. 자세한
-        내용은 <code>docs/ARCHITECTURE.md</code>를 참고하세요.
+        <a href="/identities">아이덴티티 매핑 큐(S-07)</a>와{" "}
+        <a href="/scorecard">개인 스코어카드(S-02)</a> 둘입니다. 자세한 내용은{" "}
+        <code>docs/ARCHITECTURE.md</code>를 참고하세요.
       </p>
     </main>
   );
