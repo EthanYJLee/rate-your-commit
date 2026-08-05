@@ -23,9 +23,9 @@ export default function HomePage() {
         개발팀의 기여를 투명하게, 설명 가능하게
       </h1>
       <p style={{ color: "var(--ink-soft)" }}>
-        아직 저장소 연결 전입니다. 설정을 마치면 이 화면이 팀 대시보드로
-        바뀝니다. 자세한 내용은{" "}
-        <a href="https://github.com/">docs/ARCHITECTURE.md</a>를 참고하세요.
+        아직 대시보드 전체는 준비 중입니다. 지금 실제로 동작하는 화면은{" "}
+        <a href="/identities">아이덴티티 매핑 큐(S-07)</a> 하나입니다. 자세한
+        내용은 <code>docs/ARCHITECTURE.md</code>를 참고하세요.
       </p>
     </main>
   );

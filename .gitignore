@@ -24,9 +24,14 @@ yarn-error.log*
 *.log
 
 # editor
-.vscode/
+# .vscode/extensions.json and launch.json are shared and committed on
+# purpose (help contributors get set up); only ignore personal overrides.
+.vscode/*
+!.vscode/extensions.json
+!.vscode/launch.json
 .idea/
 .DS_Store
+*.tsbuildinfo
 
 # prisma
 packages/db/prisma/dev.db
