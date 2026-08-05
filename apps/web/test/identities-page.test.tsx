@@ -28,6 +28,7 @@ describe("/identities page", () => {
         handle: "alice-h",
         email: "alice@example.com",
         status: "pending",
+        personId: null,
         person: null,
         _count: { commits: 3 },
       },
@@ -36,6 +37,7 @@ describe("/identities page", () => {
         handle: "bob-h",
         email: null,
         status: "confirmed",
+        personId: "person-1",
         person: { id: "person-1", displayName: "Bob Real" },
         _count: { commits: 5 },
       },
@@ -53,5 +55,55 @@ describe("/identities page", () => {
     // Already-linked identity: person's display name shown, no merge form.
     expect(html).toContain("Bob Real");
     expect(html).not.toContain('action="/api/identities/identity-confirmed/merge"');
+  });
+
+  it("shows an S-07 match suggestion (exact email) and pre-selects the dropdown for it", async () => {
+    mockPrisma.identity.findMany.mockResolvedValue([
+      {
+        id: "identity-new",
+        handle: "jane-personal-laptop",
+        email: "jane@acme.com",
+        status: "pending",
+        personId: null,
+        person: null,
+        _count: { commits: 1 },
+      },
+      {
+        id: "identity-linked",
+        handle: "jane-dev",
+        email: "jane@acme.com",
+        status: "confirmed",
+        personId: "person-jane",
+        person: { id: "person-jane", displayName: "Jane Real" },
+        _count: { commits: 10 },
+      },
+    ]);
+    mockPrisma.person.findMany.mockResolvedValue([
+      { id: "person-jane", displayName: "Jane Real" },
+    ]);
+
+    const html = renderToStaticMarkup(await IdentitiesPage());
+
+    expect(html).toContain("추천: Jane Real (이메일 완전일치)");
+    expect(html).toContain(`value="person-jane" selected`);
+  });
+
+  it("shows no suggestion caption when nothing clears the match threshold", async () => {
+    mockPrisma.identity.findMany.mockResolvedValue([
+      {
+        id: "identity-new",
+        handle: "totally-unrelated-handle",
+        email: "nobody@example.com",
+        status: "pending",
+        personId: null,
+        person: null,
+        _count: { commits: 1 },
+      },
+    ]);
+    mockPrisma.person.findMany.mockResolvedValue([]);
+
+    const html = renderToStaticMarkup(await IdentitiesPage());
+
+    expect(html).not.toContain("추천:");
   });
 });

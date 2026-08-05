@@ -1,0 +1,15 @@
+{
+  "name": "@rateyourcommit/identity-matching",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Pure rule-based Identity-to-Person match suggestions for S-07 (docs/ARCHITECTURE.md §3: exact email match, then handle string similarity). Advisory only — a human always confirms via /identities.",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.4",
+    "vitest": "^4.1.0"
+  }
+}
