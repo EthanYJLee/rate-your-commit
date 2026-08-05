@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { auth, signOut } from "../auth";
+import { NavLinks } from "../components/NavLinks";
 
 export const metadata: Metadata = {
   title: "RateYourCommit",
@@ -19,40 +20,25 @@ export default async function RootLayout({
     <html lang="ko">
       <body>
         {session && (
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "flex-end",
-              gap: ".6rem",
-              alignItems: "center",
-              padding: ".6rem 1.5rem",
-              fontSize: ".8rem",
-              color: "var(--ink-soft)",
-              borderBottom: "1px solid var(--line)",
-            }}
-          >
-            <span>{session.user?.name ?? session.user?.email}</span>
-            <form
-              action={async () => {
-                "use server";
-                await signOut();
-              }}
-            >
-              <button
-                type="submit"
-                style={{
-                  font: "inherit",
-                  color: "var(--accent)",
-                  background: "none",
-                  border: "none",
-                  padding: 0,
-                  cursor: "pointer",
+          <header className="topnav">
+            <a href="/" className="topnav__brand">
+              RateYourCommit
+            </a>
+            <NavLinks />
+            <div className="topnav__user">
+              <span>{session.user?.name ?? session.user?.email}</span>
+              <form
+                action={async () => {
+                  "use server";
+                  await signOut();
                 }}
               >
-                로그아웃
-              </button>
-            </form>
-          </div>
+                <button type="submit" className="topnav__signout">
+                  로그아웃
+                </button>
+              </form>
+            </div>
+          </header>
         )}
         {children}
       </body>

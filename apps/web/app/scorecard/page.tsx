@@ -24,69 +24,54 @@ export default async function ScorecardPage() {
   });
 
   return (
-    <main style={{ maxWidth: 1000, margin: "0 auto", padding: "3rem 1.5rem" }}>
-      <p
-        style={{
-          fontFamily: "ui-monospace, monospace",
-          fontSize: ".75rem",
-          letterSpacing: ".14em",
-          textTransform: "uppercase",
-          color: "var(--accent)",
-          fontWeight: 700,
-        }}
-      >
-        S-02 · 개인 스코어카드
-      </p>
-      <h1 style={{ fontSize: "1.75rem", marginBottom: ".5rem" }}>
-        {formatPeriodLabel(period.start)} 스코어
-      </h1>
-      <p style={{ color: "var(--ink-soft)", marginBottom: "1rem" }}>
+    <main className="page">
+      <p className="eyebrow">S-02 · 개인 스코어카드</p>
+      <h1 className="page-title">{formatPeriodLabel(period.start)} 스코어</h1>
+      <p className="page-subtitle" style={{ marginBottom: ".5rem" }}>
         총 {results.length}명 · DB에서 실시간 조회
       </p>
-      <p style={{ color: "var(--ink-soft)", fontSize: ".85rem", marginBottom: "2rem" }}>
+      <p className="hint" style={{ marginBottom: "1.75rem" }}>
         {AXIS_LABEL.collaboration}·{AXIS_LABEL.evaluation} 축은 아직 v1에 구현되지 않아
         가중치 0으로 계산에 반영되지 않습니다 (참고용 표시). 자세한 내용은{" "}
         <code>docs/ARCHITECTURE.md</code>를 참고하세요.
       </p>
 
       {results.length === 0 ? (
-        <p style={{ color: "var(--ink-soft)" }}>
+        <p className="empty-state">
           이번 달 계산된 스코어가 아직 없습니다. <code>apps/worker</code>가 최소 한 번
           동기화를 완료하고, S-07에서 identity가 Person으로 병합돼야 스코어가 계산됩니다.
         </p>
       ) : (
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: ".9rem" }}>
+        <table className="data-table">
           <thead>
-            <tr style={{ textAlign: "left", borderBottom: "2px solid var(--line)" }}>
-              <th style={{ padding: ".6rem" }}>이름</th>
-              <th style={{ padding: ".6rem", textAlign: "right" }}>{AXIS_LABEL.delivery}</th>
-              <th style={{ padding: ".6rem", textAlign: "right" }}>{AXIS_LABEL.quality}</th>
-              <th style={{ padding: ".6rem", textAlign: "right" }}>{AXIS_LABEL.collaboration}</th>
-              <th style={{ padding: ".6rem", textAlign: "right" }}>{AXIS_LABEL.evaluation}</th>
-              <th style={{ padding: ".6rem", textAlign: "right" }}>최종 점수</th>
-              <th style={{ padding: ".6rem", textAlign: "center" }}>등급</th>
+            <tr>
+              <th>이름</th>
+              <th className="num">{AXIS_LABEL.delivery}</th>
+              <th className="num">{AXIS_LABEL.quality}</th>
+              <th className="num">{AXIS_LABEL.collaboration}</th>
+              <th className="num">{AXIS_LABEL.evaluation}</th>
+              <th className="num">최종 점수</th>
+              <th className="center">등급</th>
             </tr>
           </thead>
           <tbody>
             {results.map((result) => (
-              <tr key={result.id} style={{ borderBottom: "1px solid var(--line)" }}>
-                <td style={{ padding: ".6rem" }}>{result.person.displayName}</td>
-                <td style={{ padding: ".6rem", textAlign: "right", fontFamily: "ui-monospace, monospace" }}>
-                  {result.delivery}
-                </td>
-                <td style={{ padding: ".6rem", textAlign: "right", fontFamily: "ui-monospace, monospace" }}>
-                  {result.quality}
-                </td>
-                <td style={{ padding: ".6rem", textAlign: "right", fontFamily: "ui-monospace, monospace", color: "var(--ink-soft)" }}>
+              <tr key={result.id}>
+                <td>{result.person.displayName}</td>
+                <td className="num">{result.delivery}</td>
+                <td className="num">{result.quality}</td>
+                <td className="num" style={{ color: "var(--ink-faint)" }}>
                   {result.collaboration}
                 </td>
-                <td style={{ padding: ".6rem", textAlign: "right", fontFamily: "ui-monospace, monospace", color: "var(--ink-soft)" }}>
+                <td className="num" style={{ color: "var(--ink-faint)" }}>
                   {result.evaluation}
                 </td>
-                <td style={{ padding: ".6rem", textAlign: "right", fontFamily: "ui-monospace, monospace", fontWeight: 700 }}>
+                <td className="num" style={{ fontWeight: 700 }}>
                   {result.finalScore}
                 </td>
-                <td style={{ padding: ".6rem", textAlign: "center", fontWeight: 700 }}>{result.grade}</td>
+                <td className="center">
+                  <span className={`badge badge--grade-${result.grade}`}>{result.grade}</span>
+                </td>
               </tr>
             ))}
           </tbody>

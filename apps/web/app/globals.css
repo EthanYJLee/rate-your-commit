@@ -1,10 +1,92 @@
+/**
+ * RateYourCommit design system. Small, deliberately restrained set of
+ * tokens + component classes — a quiet, dense "operations console"
+ * tone (Linear/Stripe-dashboard adjacent), not a marketing site.
+ * Light/dark via prefers-color-scheme; no JS toggle, no client state.
+ */
+
 :root {
-  --bg: #f5f6f8;
+  /* Surfaces */
+  --bg: #f4f5f7;
   --surface: #ffffff;
-  --ink: #16181d;
-  --ink-soft: #495159;
-  --line: #dadfe6;
-  --accent: #1f4e9c;
+  --surface-hover: #f0f1f4;
+
+  /* Text */
+  --ink: #14171c;
+  --ink-soft: #565f6b;
+  --ink-faint: #8a919c;
+
+  /* Structure */
+  --line: #dde1e7;
+  --line-strong: #c3c9d2;
+
+  /* Accent — used sparingly (links, focus, primary actions, active nav) */
+  --accent: #2454b8;
+  --accent-soft: #e8eefb;
+  --accent-ink: #ffffff;
+
+  /* Status */
+  --danger: #b3261e;
+  --danger-soft: #fbe9e8;
+  --success: #1a7a4c;
+  --success-soft: #e6f4ec;
+
+  /* Grade badges — muted, not traffic-light saturated */
+  --grade-s: #1a7a4c;
+  --grade-s-soft: #e6f4ec;
+  --grade-a: #2454b8;
+  --grade-a-soft: #e8eefb;
+  --grade-b: #7a6a1a;
+  --grade-b-soft: #f6f0dc;
+  --grade-c: #a15a1f;
+  --grade-c-soft: #f8ebdd;
+  --grade-d: #b3261e;
+  --grade-d-soft: #fbe9e8;
+
+  /* Type + spacing */
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --shadow-sm: 0 1px 2px rgba(20, 23, 28, 0.05);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f1115;
+    --surface: #171a20;
+    --surface-hover: #1d2129;
+
+    --ink: #eef0f3;
+    --ink-soft: #a2a9b4;
+    --ink-faint: #6b7280;
+
+    --line: #2a2e37;
+    --line-strong: #3a3f4a;
+
+    --accent: #7ba3ec;
+    --accent-soft: #1b2740;
+    --accent-ink: #0f1115;
+
+    --danger: #f0857d;
+    --danger-soft: #3a1f1e;
+    --success: #6fcf9b;
+    --success-soft: #16321f;
+
+    --grade-s: #6fcf9b;
+    --grade-s-soft: #16321f;
+    --grade-a: #7ba3ec;
+    --grade-a-soft: #1b2740;
+    --grade-b: #d8c477;
+    --grade-b-soft: #33301a;
+    --grade-c: #e0a165;
+    --grade-c-soft: #382512;
+    --grade-d: #f0857d;
+    --grade-d-soft: #3a1f1e;
+
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  }
 }
 
 * {
@@ -20,11 +102,378 @@ body {
 body {
   background: var(--bg);
   color: var(--ink);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-    "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  font-family: var(--font-sans);
   line-height: 1.6;
+  font-size: 15px;
 }
 
 a {
   color: var(--accent);
+}
+
+code {
+  font-family: var(--font-mono);
+  font-size: .9em;
+  background: var(--surface-hover);
+  padding: .1em .35em;
+  border-radius: 4px;
+}
+
+/* ---- Layout ---- */
+
+.page {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 2.5rem 1.5rem 4rem;
+}
+
+.page--narrow {
+  max-width: 640px;
+}
+
+.page--center {
+  max-width: 480px;
+  text-align: center;
+  padding-top: 6rem;
+}
+
+/* ---- Top nav ---- */
+
+.topnav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: .7rem 1.5rem;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.topnav__brand {
+  font-weight: 700;
+  font-size: .95rem;
+  color: var(--ink);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.topnav__links {
+  display: flex;
+  gap: .25rem;
+  flex-wrap: wrap;
+}
+
+.topnav__link {
+  font-size: .85rem;
+  color: var(--ink-soft);
+  text-decoration: none;
+  padding: .4rem .65rem;
+  border-radius: var(--radius-sm);
+}
+
+.topnav__link:hover {
+  background: var(--surface-hover);
+  color: var(--ink);
+}
+
+.topnav__link.is-active {
+  color: var(--accent);
+  background: var(--accent-soft);
+  font-weight: 600;
+}
+
+.topnav__user {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  font-size: .8rem;
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+
+.topnav__signout {
+  font: inherit;
+  color: var(--accent);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+/* ---- Text patterns ---- */
+
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: .72rem;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--accent);
+  font-weight: 700;
+  margin: 0 0 .5rem;
+}
+
+.page-title {
+  font-size: 1.6rem;
+  margin: 0 0 .4rem;
+  letter-spacing: -.01em;
+}
+
+.page-subtitle {
+  color: var(--ink-soft);
+  margin: 0 0 1.75rem;
+  font-size: .92rem;
+}
+
+.hint {
+  color: var(--ink-soft);
+  font-size: .85rem;
+}
+
+.mono {
+  font-family: var(--font-mono);
+}
+
+/* ---- Cards / stats ---- */
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+}
+
+.stat-grid {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 2rem;
+}
+
+.stat-card {
+  flex: 1 1 0;
+  min-width: 160px;
+  padding: 1.1rem 1.2rem;
+  text-decoration: none;
+  color: inherit;
+  transition: border-color .12s ease;
+}
+
+a.stat-card:hover {
+  border-color: var(--line-strong);
+}
+
+.stat-card__label {
+  color: var(--ink-soft);
+  font-size: .78rem;
+  margin: 0 0 .4rem;
+}
+
+.stat-card__value {
+  font-size: 1.6rem;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  margin: 0;
+}
+
+.grade-tally {
+  display: flex;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+  margin-bottom: 2.25rem;
+}
+
+.grade-tally__item {
+  text-align: center;
+  min-width: 3.2rem;
+}
+
+.grade-tally__count {
+  font-size: 1.3rem;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  margin: 0;
+}
+
+.grade-tally__label {
+  color: var(--ink-soft);
+  font-size: .78rem;
+  margin: .1rem 0 0;
+}
+
+/* ---- Table ---- */
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: .88rem;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.data-table th,
+.data-table td {
+  padding: .65rem .8rem;
+  text-align: left;
+  border-bottom: 1px solid var(--line);
+}
+
+.data-table th {
+  color: var(--ink-soft);
+  font-weight: 600;
+  font-size: .78rem;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  background: var(--surface-hover);
+}
+
+.data-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.data-table tbody tr:hover {
+  background: var(--surface-hover);
+}
+
+.data-table .num {
+  text-align: right;
+  font-family: var(--font-mono);
+}
+
+.data-table .center {
+  text-align: center;
+}
+
+/* ---- Badges / pills ---- */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: .18rem .55rem;
+  border-radius: 999px;
+  font-size: .78rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.badge--neutral {
+  background: var(--surface-hover);
+  color: var(--ink-soft);
+}
+
+.badge--grade-S { background: var(--grade-s-soft); color: var(--grade-s); }
+.badge--grade-A { background: var(--grade-a-soft); color: var(--grade-a); }
+.badge--grade-B { background: var(--grade-b-soft); color: var(--grade-b); }
+.badge--grade-C { background: var(--grade-c-soft); color: var(--grade-c); }
+.badge--grade-D { background: var(--grade-d-soft); color: var(--grade-d); }
+
+/* ---- Forms ---- */
+
+.field-row {
+  display: flex;
+  gap: .5rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.input,
+.select {
+  font: inherit;
+  font-size: .85rem;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  padding: .35rem .55rem;
+}
+
+.input:focus,
+.select:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.form-grid {
+  display: flex;
+  flex-direction: column;
+  gap: .9rem;
+  max-width: 22rem;
+}
+
+.form-grid label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  font-size: .92rem;
+}
+
+.form-grid .input {
+  width: 6rem;
+  text-align: right;
+  font-family: var(--font-mono);
+}
+
+/* ---- Buttons ---- */
+
+.button {
+  font: inherit;
+  font-size: .85rem;
+  font-weight: 600;
+  padding: .45rem 1rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.button:hover {
+  background: var(--surface-hover);
+}
+
+.button--primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+
+.button--primary:hover {
+  filter: brightness(1.08);
+}
+
+.button--small {
+  padding: .3rem .7rem;
+  font-size: .8rem;
+}
+
+/* ---- Misc ---- */
+
+.suggestion {
+  font-size: .75rem;
+  color: var(--accent);
+  margin: .35rem 0 0;
+}
+
+.error-banner {
+  color: var(--danger);
+  background: var(--danger-soft);
+  border: 1px solid currentColor;
+  border-radius: var(--radius-sm);
+  padding: .6rem .8rem;
+  margin-bottom: 1.5rem;
+  font-size: .88rem;
+}
+
+.empty-state {
+  color: var(--ink-soft);
+  background: var(--surface);
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius-md);
+  padding: 1.5rem;
+  font-size: .9rem;
 }
