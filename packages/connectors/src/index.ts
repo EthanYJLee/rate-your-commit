@@ -5,3 +5,8 @@ export type {
   SourceConnector,
   TrackerConnector,
 } from "./types";
+export { GitHubConnector, GitHubConnectorError } from "./github";
+export type {
+  GitHubConnectorOptions,
+  OctokitLike,
+} from "./github";

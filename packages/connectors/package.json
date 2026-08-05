@@ -2,10 +2,17 @@
   "name": "@rateyourcommit/connectors",
   "version": "0.0.1",
   "private": true,
-  "description": "Adapter interfaces for external source/tracker integrations (GitHub, GitLab, Jira, Linear...). No implementations yet — see docs/ARCHITECTURE.md §2.",
+  "description": "Adapter interfaces + implementations for external source/tracker integrations (GitHub, GitLab, Jira, Linear...). See docs/ARCHITECTURE.md §2.",
   "main": "src/index.ts",
   "types": "src/index.ts",
+  "scripts": {
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@octokit/rest": "^21.0.2"
+  },
   "devDependencies": {
-    "typescript": "^5.5.4"
+    "typescript": "^5.5.4",
+    "vitest": "^4.1.0"
   }
 }

@@ -1,19 +1,42 @@
 /**
- * Sync worker entrypoint. In v1.0 this will loop over configured
- * SourceConnector/TrackerConnector instances (packages/connectors)
- * and persist normalized rows via packages/db.
+ * Sync worker entrypoint. Fetches commits/authors via
+ * packages/connectors and logs a summary.
  *
- * No connector implementations exist yet (see docs/ARCHITECTURE.md §2
- * for the v1.0 priority order), so runSync is an honest no-op for now
- * rather than a stub that pretends to talk to GitHub.
+ * NOTE: this does not persist to packages/db yet — that wiring is a
+ * separate, later step (see docs/ARCHITECTURE.md §3). Today this only
+ * proves the GitHub connector runs against a real repo end to end.
  */
+import { GitHubConnector } from "@rateyourcommit/connectors";
 
 const SYNC_INTERVAL_MS = 15 * 60 * 1000; // 15 minutes
 
 async function runSync(): Promise<void> {
-  console.log(
-    `[worker] sync tick at ${new Date().toISOString()} — no connectors configured yet`
-  );
+  const token = process.env.GITHUB_TOKEN;
+  const repoSlug = process.env.GITHUB_REPOSITORY; // "owner/repo"
+
+  if (!token || !repoSlug) {
+    console.log(
+      `[worker] sync tick at ${new Date().toISOString()} — GITHUB_TOKEN/GITHUB_REPOSITORY not set, skipping`
+    );
+    return;
+  }
+
+  const [owner, repo] = repoSlug.split("/");
+  const connector = new GitHubConnector({ owner, repo, token });
+
+  console.log(`[worker] syncing ${owner}/${repo}...`);
+  try {
+    const [authors, commits] = await Promise.all([
+      connector.fetchAuthors(),
+      connector.fetchCommits(new Date(0)), // full history — see docs/ARCHITECTURE.md decision log
+    ]);
+    console.log(
+      `[worker] fetched ${authors.length} distinct authors, ${commits.length} commits ` +
+        `(not yet persisted — packages/db wiring is a later step)`
+    );
+  } catch (err) {
+    console.error("[worker] sync failed:", err);
+  }
 }
 
 async function main(): Promise<void> {

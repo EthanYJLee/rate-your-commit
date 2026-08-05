@@ -4,16 +4,15 @@
   "private": true,
   "description": "Scheduled sync jobs that pull commits/tickets via packages/connectors and write normalized rows via packages/db.",
   "scripts": {
-    "start": "node --loader ts-node/esm src/index.ts",
-    "dev": "node --loader ts-node/esm --watch src/index.ts"
+    "start": "tsx src/index.ts",
+    "dev": "tsx watch src/index.ts"
   },
   "dependencies": {
-    "@rateyourcommit/connectors": "*",
-    "@rateyourcommit/db": "*"
+    "@rateyourcommit/connectors": "*"
   },
   "devDependencies": {
     "typescript": "^5.5.4",
-    "ts-node": "^10.9.2",
+    "tsx": "^4.19.1",
     "@types/node": "^20.14.15"
   }
 }

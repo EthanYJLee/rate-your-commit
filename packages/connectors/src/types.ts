@@ -19,8 +19,17 @@ export interface RawCommit {
   authorHandle: string;
   authorEmail?: string;
   message: string;
-  additions: number;
-  deletions: number;
+  /**
+   * Line-change stats, when the connector can provide them cheaply.
+   * The v1 GitHub connector omits these: GitHub's commit-list endpoint
+   * doesn't include stats, and fetching them would cost one extra API
+   * call per commit — infeasible at all-branches/full-history scale.
+   * A future version can backfill this from GitHub's aggregate
+   * `stats/contributors` endpoint instead. Consumers (e.g. S-04 outlier
+   * detection) must treat a missing value as "unknown", not zero.
+   */
+  additions?: number;
+  deletions?: number;
   authoredAt: Date;
 }
 
