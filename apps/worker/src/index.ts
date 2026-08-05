@@ -28,15 +28,7 @@ import { computeAxisMetrics, currentMonthPeriod, detectOutlierWeeks } from "@rat
 import type { OutlierWeek } from "@rateyourcommit/metrics";
 import { assignGrade, calculateScore } from "@rateyourcommit/scoring";
 import type { AxisWeights } from "@rateyourcommit/scoring";
-import { prisma } from "@rateyourcommit/db";
-
-/**
- * Single-tenant MVP: there's no multi-org auth yet (self-hosted,
- * small-team target — docs/ARCHITECTURE.md §1), so every
- * ScoreWeightConfig belongs to this one fixed organization until
- * multi-org support exists.
- */
-const DEFAULT_ORGANIZATION_ID = "default";
+import { DEFAULT_ORGANIZATION_ID, prisma } from "@rateyourcommit/db";
 
 const SYNC_INTERVAL_MS = 15 * 60 * 1000; // 15 minutes
 

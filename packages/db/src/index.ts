@@ -12,4 +12,13 @@ if (process.env.NODE_ENV !== "production") {
   globalForPrisma.prisma = prisma;
 }
 
+/**
+ * Single-tenant MVP: there's no multi-org auth yet (self-hosted,
+ * small-team target — docs/ARCHITECTURE.md §1), so every
+ * ScoreWeightConfig belongs to this one fixed organization until
+ * multi-org support exists. Shared here so apps/worker (writes) and
+ * apps/web (reads/writes via the settings screen) can't drift.
+ */
+export const DEFAULT_ORGANIZATION_ID = "default";
+
 export * from "@prisma/client";

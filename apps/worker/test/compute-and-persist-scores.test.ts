@@ -6,7 +6,7 @@ const mockPrisma = {
   scoreResult: { upsert: vi.fn() },
 };
 
-vi.mock("@rateyourcommit/db", () => ({ prisma: mockPrisma }));
+vi.mock("@rateyourcommit/db", () => ({ prisma: mockPrisma, DEFAULT_ORGANIZATION_ID: "default" }));
 
 const { computeAndPersistScores } = await import("../src/index");
 
