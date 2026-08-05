@@ -10,13 +10,16 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 export default async function IdentitiesPage() {
-  const identities = await prisma.identity.findMany({
-    orderBy: { createdAt: "asc" },
-    include: { _count: { select: { commits: true } } },
-  });
+  const [identities, people] = await Promise.all([
+    prisma.identity.findMany({
+      orderBy: { createdAt: "asc" },
+      include: { _count: { select: { commits: true } }, person: true },
+    }),
+    prisma.person.findMany({ orderBy: { displayName: "asc" } }),
+  ]);
 
   return (
-    <main style={{ maxWidth: 900, margin: "0 auto", padding: "3rem 1.5rem" }}>
+    <main style={{ maxWidth: 1000, margin: "0 auto", padding: "3rem 1.5rem" }}>
       <p
         style={{
           fontFamily: "ui-monospace, monospace",
@@ -50,6 +53,7 @@ export default async function IdentitiesPage() {
               <th style={{ padding: ".6rem" }}>email</th>
               <th style={{ padding: ".6rem" }}>상태</th>
               <th style={{ padding: ".6rem", textAlign: "right" }}>커밋 수</th>
+              <th style={{ padding: ".6rem" }}>병합</th>
             </tr>
           </thead>
           <tbody>
@@ -66,6 +70,36 @@ export default async function IdentitiesPage() {
                 </td>
                 <td style={{ padding: ".6rem", textAlign: "right", fontFamily: "ui-monospace, monospace" }}>
                   {identity._count.commits}
+                </td>
+                <td style={{ padding: ".6rem" }}>
+                  {identity.person ? (
+                    <span>{identity.person.displayName}</span>
+                  ) : (
+                    <form
+                      action={`/api/identities/${identity.id}/merge`}
+                      method="POST"
+                      style={{ display: "flex", gap: ".4rem", alignItems: "center" }}
+                    >
+                      <select name="personId" style={{ fontSize: ".85rem" }}>
+                        <option value="">— 새 인물로 등록 —</option>
+                        {people.map((person) => (
+                          <option key={person.id} value={person.id}>
+                            {person.displayName}
+                          </option>
+                        ))}
+                      </select>
+                      <input
+                        type="text"
+                        name="newPersonName"
+                        placeholder="새 인물 이름"
+                        defaultValue={identity.handle}
+                        style={{ fontSize: ".85rem", width: "9rem" }}
+                      />
+                      <button type="submit" style={{ fontSize: ".85rem" }}>
+                        병합
+                      </button>
+                    </form>
+                  )}
                 </td>
               </tr>
             ))}
