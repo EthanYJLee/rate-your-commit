@@ -18,7 +18,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async signIn({ profile }) {
       const allowedLogins = parseAllowedLogins(process.env.ALLOWED_GITHUB_LOGINS);
       const login = (profile as { login?: string } | undefined)?.login;
-      return isLoginAllowed(login, allowedLogins);
+      const allowed = isLoginAllowed(login, allowedLogins);
+      // TEMP diagnostic — remove once the redirect-loop is confirmed fixed.
+      console.log("[auth] signIn callback", {
+        profileLogin: login,
+        profileKeys: profile ? Object.keys(profile) : null,
+        allowedLogins,
+        allowed,
+      });
+      return allowed;
     },
   },
 });
