@@ -20,3 +20,5 @@ export type {
 } from "./github/issues";
 export { GitLabConnector, GitLabConnectorError } from "./gitlab";
 export type { GitLabConnectorOptions, GitLabHttpClient } from "./gitlab";
+export { JiraConnector, JiraConnectorError } from "./jira";
+export type { JiraConnectorOptions, JiraHttpClient } from "./jira";
