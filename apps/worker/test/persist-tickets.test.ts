@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { RawTicket } from "@rateyourcommit/connectors";
 
 const mockPrisma = {
-  identity: { upsert: vi.fn() },
+  identity: { upsert: vi.fn(), findFirst: vi.fn(), create: vi.fn() },
   ticket: { upsert: vi.fn() },
 };
 
@@ -30,7 +30,7 @@ describe("persistTickets", () => {
     const count = await persistTickets("project-1", [ticket()]);
 
     expect(count).toBe(1);
-    expect(mockPrisma.identity.upsert).not.toHaveBeenCalled();
+    expect(mockPrisma.identity.findFirst).not.toHaveBeenCalled();
     expect(mockPrisma.ticket.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
         create: expect.objectContaining({ identityId: undefined }),
@@ -39,19 +39,37 @@ describe("persistTickets", () => {
   });
 
   it("resolves (or creates) an Identity keyed by (handle, email:null) for the assignee", async () => {
-    mockPrisma.identity.upsert.mockResolvedValue({ id: "identity-1" });
+    // Not a plain upsert on the handle_email compound key: Prisma
+    // rejects `null` there for a nullable compound-key member at
+    // runtime (PrismaClientValidationError, confirmed against a live
+    // Postgres) — see persist.test.ts for the fuller explanation.
+    // findFirst-miss then create is the correct find-or-create here.
+    mockPrisma.identity.findFirst.mockResolvedValue(null);
+    mockPrisma.identity.create.mockResolvedValue({ id: "identity-1" });
 
     await persistTickets("project-1", [ticket({ assigneeHandle: "alice" })]);
 
-    expect(mockPrisma.identity.upsert).toHaveBeenCalledWith({
-      where: { handle_email: { handle: "alice", email: null } },
-      update: {},
-      create: { handle: "alice" },
+    expect(mockPrisma.identity.findFirst).toHaveBeenCalledWith({
+      where: { handle: "alice", email: null },
     });
+    expect(mockPrisma.identity.create).toHaveBeenCalledWith({ data: { handle: "alice" } });
     expect(mockPrisma.ticket.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
         create: expect.objectContaining({ identityId: "identity-1" }),
         update: expect.objectContaining({ identityId: "identity-1" }),
+      })
+    );
+  });
+
+  it("reuses an existing null-email Identity for the assignee instead of creating a duplicate", async () => {
+    mockPrisma.identity.findFirst.mockResolvedValue({ id: "existing-identity" });
+
+    await persistTickets("project-1", [ticket({ assigneeHandle: "alice" })]);
+
+    expect(mockPrisma.identity.create).not.toHaveBeenCalled();
+    expect(mockPrisma.ticket.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({ identityId: "existing-identity" }),
       })
     );
   });

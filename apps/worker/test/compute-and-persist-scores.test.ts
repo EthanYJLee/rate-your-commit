@@ -73,4 +73,27 @@ describe("computeAndPersistScores", () => {
     expect(call.create.finalScore).toBe(100);
     expect(call.create.grade).toBe("S");
   });
+
+  it("counts a currently-open ticket (closedAt: null, Prisma's actual shape for a nullable column — not undefined) as active, not as 0% delivery via NO_ACTIVITY_DEFAULT", async () => {
+    const now = new Date();
+    const inPeriod = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 10));
+
+    mockPrisma.person.findMany.mockResolvedValue([
+      {
+        id: "person-1",
+        identities: [
+          { commits: [], tickets: [{ createdAt: inPeriod, closedAt: null }] },
+        ],
+      },
+    ]);
+
+    const count = await computeAndPersistScores();
+
+    expect(count).toBe(1);
+    const call = mockPrisma.scoreResult.upsert.mock.calls[0][0];
+    // One active (open) ticket, zero closed in-period -> 0%, NOT the
+    // NO_ACTIVITY_DEFAULT of 100 that a `null`-treated-as-"filtered
+    // out entirely" bug would have produced.
+    expect(call.create.delivery).toBe(0);
+  });
 });

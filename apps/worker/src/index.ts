@@ -53,7 +53,48 @@ function identityKey(identity: Pick<RawIdentity, "handle" | "email">): string {
   return `${identity.handle}::${identity.email ?? ""}`;
 }
 
-async function persist(
+/**
+ * Finds (or creates) the Identity for (handle, email). NOT a plain
+ * `prisma.identity.upsert()` on the handle_email compound key when
+ * email is absent: Prisma's generated input for a nullable member of
+ * a compound-unique key requires a non-null string there, and —
+ * confirmed empirically against a live Postgres — actually throws
+ * `PrismaClientValidationError` at runtime for `email: null`. This
+ * was silently broken since the ticket-assignee-identity feature was
+ * added: every worker test mocks Prisma entirely, so nothing ever
+ * exercised the real client, and no real deployment has synced
+ * tickets yet either. It's not just a missing type annotation —
+ * `resolveAssigneeIdentityId` below hits this on every ticket that
+ * has an assignee, across every tracker connector (GitHub issues,
+ * Jira, Linear, GitLab issues).
+ *
+ * Postgres itself doesn't error on the underlying `WHERE handle = ?
+ * AND email IS NULL` this falls back to — a unique index doesn't
+ * dedupe NULLs (each NULL is distinct under SQL's unique-constraint
+ * semantics, confirmed empirically too) — so this can't rely on a
+ * database-level upsert for the null-email case either. findFirst
+ * reliably reuses an existing row across sequential sync ticks (this
+ * worker's actual usage pattern — a single `setInterval` loop, not
+ * concurrent callers), which is the property that matters here.
+ */
+async function findOrCreateIdentity(
+  handle: string,
+  email: string | undefined
+): Promise<{ id: string }> {
+  if (email) {
+    return prisma.identity.upsert({
+      where: { handle_email: { handle, email } },
+      update: {},
+      create: { handle, email },
+    });
+  }
+
+  const existing = await prisma.identity.findFirst({ where: { handle, email: null } });
+  if (existing) return existing;
+  return prisma.identity.create({ data: { handle } });
+}
+
+export async function persist(
   projectId: string,
   authors: RawIdentity[],
   commits: RawCommit[]
@@ -61,11 +102,7 @@ async function persist(
   const identityIdByKey = new Map<string, string>();
 
   for (const author of authors) {
-    const identity = await prisma.identity.upsert({
-      where: { handle_email: { handle: author.handle, email: author.email ?? null } },
-      update: {},
-      create: { handle: author.handle, email: author.email },
-    });
+    const identity = await findOrCreateIdentity(author.handle, author.email);
     identityIdByKey.set(identityKey(author), identity.id);
   }
 
@@ -109,12 +146,7 @@ async function persist(
  */
 async function resolveAssigneeIdentityId(handle: string | undefined): Promise<string | undefined> {
   if (!handle) return undefined;
-
-  const identity = await prisma.identity.upsert({
-    where: { handle_email: { handle, email: null } },
-    update: {},
-    create: { handle },
-  });
+  const identity = await findOrCreateIdentity(handle, undefined);
   return identity.id;
 }
 
@@ -220,7 +252,20 @@ export async function computeAndPersistScores(): Promise<number> {
     const tickets = person.identities.flatMap((identity) => identity.tickets);
     if (commits.length === 0 && tickets.length === 0) continue;
 
-    const metrics = computeAxisMetrics(commits, tickets, period);
+    // Prisma returns a nullable DateTime column as `null`, but
+    // TicketForMetrics (packages/metrics — deliberately store-agnostic,
+    // see its own doc comment) uses `undefined` for "not closed",
+    // matching RawTicket's convention everywhere else. Passing raw
+    // Prisma rows through unmapped silently miscounts every currently-
+    // open ticket as inactive (`closedAt === undefined` is false for
+    // `null`, and `null >= period.start` is also false) — confirmed via
+    // tsc catching the type mismatch, not just a type nicety.
+    const ticketsForMetrics = tickets.map((ticket) => ({
+      ...ticket,
+      closedAt: ticket.closedAt ?? undefined,
+    }));
+
+    const metrics = computeAxisMetrics(commits, ticketsForMetrics, period);
     const finalScore = calculateScore(metrics, weights);
     const grade = assignGrade(finalScore);
 
