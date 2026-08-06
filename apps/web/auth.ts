@@ -1,6 +1,7 @@
 import NextAuth from "next-auth";
 import GitHub from "next-auth/providers/github";
 import { isLoginAllowed, parseAllowedLogins } from "./lib/auth-allowlist";
+import { attachLoginToSession, attachLoginToToken } from "./lib/auth-session";
 
 /**
  * GitHub OAuth only for v1 (email/password deferred — see
@@ -19,6 +20,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       const allowedLogins = parseAllowedLogins(process.env.ALLOWED_GITHUB_LOGINS);
       const login = (profile as { login?: string } | undefined)?.login;
       return isLoginAllowed(login, allowedLogins);
+    },
+    async jwt({ token, profile }) {
+      return attachLoginToToken(token, profile as { login?: string } | undefined);
+    },
+    async session({ session, token }) {
+      return attachLoginToSession(session, token);
     },
   },
 });
