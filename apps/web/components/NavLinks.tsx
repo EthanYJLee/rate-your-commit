@@ -7,6 +7,7 @@ const LINKS = [
   { href: "/identities", label: "아이덴티티" },
   { href: "/scorecard", label: "스코어카드" },
   { href: "/settings/weights", label: "가중치 설정" },
+  { href: "/settings/teams", label: "팀 설정" },
 ] as const;
 
 /**
