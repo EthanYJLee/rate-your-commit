@@ -10,9 +10,21 @@ import type { Session } from "next-auth";
  * the life of the session, so audit logging (S-07 merge/unmerge/split)
  * can record a real actor instead of the possibly-blank/non-unique
  * display name.
+ *
+ * `user` is the Credentials provider's fallback identity: its
+ * authorize() callback (see auth.ts) has no GitHub `profile`, only
+ * the AppUser it looked up — so an email/password sign-in's audit-log
+ * actor is their email instead. profile.login wins when both are
+ * present (shouldn't happen in practice — one sign-in uses one
+ * provider — but GitHub's real account identity is preferred if it
+ * ever does).
  */
-export function attachLoginToToken(token: JWT, profile: { login?: string } | undefined): JWT {
-  const login = profile?.login;
+export function attachLoginToToken(
+  token: JWT,
+  profile: { login?: string } | undefined,
+  user?: { email?: string | null }
+): JWT {
+  const login = profile?.login ?? user?.email ?? undefined;
   if (!login) return token;
   return { ...token, login };
 }

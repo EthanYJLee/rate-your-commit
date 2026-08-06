@@ -23,6 +23,21 @@ describe("attachLoginToToken", () => {
     attachLoginToToken(original, { login: "octocat" });
     expect(original).toEqual({});
   });
+
+  it("falls back to the user's email when there's no GitHub profile.login (Credentials sign-in)", () => {
+    const token = attachLoginToToken({}, undefined, { email: "alice@example.com" });
+    expect(token.login).toBe("alice@example.com");
+  });
+
+  it("prefers profile.login over the user's email when both are present", () => {
+    const token = attachLoginToToken({}, { login: "octocat" }, { email: "octocat@example.com" });
+    expect(token.login).toBe("octocat");
+  });
+
+  it("leaves the token unchanged when neither profile.login nor user.email is present", () => {
+    const token = attachLoginToToken({ login: "octocat" }, undefined, {});
+    expect(token.login).toBe("octocat");
+  });
 });
 
 describe("attachLoginToSession", () => {

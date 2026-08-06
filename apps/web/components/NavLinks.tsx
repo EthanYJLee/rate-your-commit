@@ -8,6 +8,7 @@ const LINKS = [
   { href: "/scorecard", label: "스코어카드" },
   { href: "/settings/weights", label: "가중치 설정" },
   { href: "/settings/teams", label: "팀 설정" },
+  { href: "/settings/app-users", label: "계정 관리" },
 ] as const;
 
 /**
