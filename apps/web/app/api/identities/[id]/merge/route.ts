@@ -1,5 +1,6 @@
 import { prisma } from "@rateyourcommit/db";
 import { NextRequest, NextResponse } from "next/server";
+import { getActorLogin, logIdentityAction } from "../../../../../lib/audit-log";
 
 /**
  * Manual identity-to-person merge (S-07). No auto-suggestion logic
@@ -46,6 +47,14 @@ export async function POST(
   const updated = await prisma.identity.update({
     where: { id },
     data: { personId: person.id, status: "confirmed" },
+  });
+
+  await logIdentityAction({
+    action: "merge",
+    identityId: id,
+    personId: person.id,
+    previousPersonId: identity.personId,
+    actorLogin: await getActorLogin(),
   });
 
   const isFormSubmit = !contentType.includes("application/json");

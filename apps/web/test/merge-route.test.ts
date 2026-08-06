@@ -12,11 +12,18 @@ const mockPrisma = {
   },
 };
 
+const mockLogIdentityAction = vi.fn();
+
 vi.mock("@rateyourcommit/db", () => ({
   prisma: mockPrisma,
 }));
 
-// Imported after the mock so the route picks up the mocked client.
+vi.mock("../lib/audit-log", () => ({
+  getActorLogin: vi.fn().mockResolvedValue("octocat"),
+  logIdentityAction: mockLogIdentityAction,
+}));
+
+// Imported after the mocks so the route picks up the mocked modules.
 const { POST } = await import("../app/api/identities/[id]/merge/route");
 
 function paramsFor(id: string) {
@@ -61,7 +68,7 @@ describe("POST /api/identities/[id]/merge", () => {
   });
 
   it("merges into an existing person via JSON body and returns JSON", async () => {
-    mockPrisma.identity.findUnique.mockResolvedValue({ id: "id-1" });
+    mockPrisma.identity.findUnique.mockResolvedValue({ id: "id-1", personId: null });
     mockPrisma.person.findUniqueOrThrow.mockResolvedValue({ id: "person-1", displayName: "Alice" });
     mockPrisma.identity.update.mockResolvedValue({
       id: "id-1",
@@ -79,6 +86,13 @@ describe("POST /api/identities/[id]/merge", () => {
       data: { personId: "person-1", status: "confirmed" },
     });
     expect(body.identity.status).toBe("confirmed");
+    expect(mockLogIdentityAction).toHaveBeenCalledWith({
+      action: "merge",
+      identityId: "id-1",
+      personId: "person-1",
+      previousPersonId: null,
+      actorLogin: "octocat",
+    });
   });
 
   it("creates a new person when newPersonName is given instead of personId", async () => {
