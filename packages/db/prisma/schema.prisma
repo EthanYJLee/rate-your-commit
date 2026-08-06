@@ -20,7 +20,22 @@ model Person {
   identities  Identity[]
   scores      ScoreResult[]
   auditLogs   IdentityAuditLog[]
+  /// Null until an admin assigns one on /settings/teams — no
+  /// connector reports team membership, so this is manual-only.
+  team        Team?      @relation(fields: [teamId], references: [id])
+  teamId      String?
   createdAt   DateTime   @default(now())
+}
+
+/// Manually-managed organizational grouping (S-01's team-comparison
+/// view). No source connector reports this — GitHub repos/issues
+/// don't map to org teams — so membership is admin-assigned on
+/// /settings/teams, not synced.
+model Team {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  people    Person[]
+  createdAt DateTime @default(now())
 }
 
 enum IdentityStatus {
