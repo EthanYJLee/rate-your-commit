@@ -69,7 +69,9 @@ export default async function ScorecardPage() {
           <tbody>
             {results.map((result) => (
               <tr key={result.id}>
-                <td>{result.person.displayName}</td>
+                <td>
+                  <a href={`/scorecard/${result.personId}`}>{result.person.displayName}</a>
+                </td>
                 <td className="num">{result.delivery}</td>
                 <td className="num">{result.quality}</td>
                 <td className="num" style={{ color: "var(--ink-faint)" }}>
