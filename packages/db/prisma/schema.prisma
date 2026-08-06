@@ -19,6 +19,7 @@ model Person {
   employeeId  String?    @unique
   identities  Identity[]
   scores      ScoreResult[]
+  auditLogs   IdentityAuditLog[]
   createdAt   DateTime   @default(now())
 }
 
@@ -42,9 +43,30 @@ model Identity {
   /// Tickets this identity is the (primary) GitHub assignee for —
   /// see GitHubIssuesConnector / RawTicket.assigneeHandle.
   tickets   Ticket[]
+  auditLogs IdentityAuditLog[]
   createdAt DateTime       @default(now())
 
   @@unique([handle, email])
+}
+
+/// Append-only history of every S-07 identity→person link change
+/// (merge, unmerge, or a shared-account split creating a new
+/// identity). The first place in this codebase that records "who did
+/// this" — actorLogin is the signed-in GitHub login, not a Person FK,
+/// since sessions aren't linked to a Person (JWT-only auth, no User
+/// table — see docs/ARCHITECTURE.md §1).
+model IdentityAuditLog {
+  id               String    @id @default(cuid())
+  action           String    // "merge" | "unmerge" | "split"
+  identity         Identity  @relation(fields: [identityId], references: [id])
+  identityId       String
+  person           Person?   @relation(fields: [personId], references: [id])
+  personId         String?
+  previousPersonId String?
+  actorLogin       String
+  /// e.g. the extracted [태그] name for a "split" action.
+  note             String?
+  createdAt        DateTime  @default(now())
 }
 
 model Project {
