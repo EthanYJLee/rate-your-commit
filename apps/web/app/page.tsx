@@ -1,6 +1,7 @@
 import { prisma } from "@rateyourcommit/db";
 import { currentMonthPeriod } from "@rateyourcommit/metrics";
 import type { Grade } from "@rateyourcommit/scoring";
+import { Histogram } from "../components/charts/Histogram";
 
 export const dynamic = "force-dynamic";
 
@@ -75,6 +76,17 @@ export default async function DashboardPage() {
             <p className="grade-tally__label">{grade}등급</p>
           </div>
         ))}
+      </div>
+
+      <div className="card chart-card">
+        <h2 className="chart-card__title">전사 스코어 분포</h2>
+        {scoreResults.length === 0 ? (
+          <p className="empty-state">
+            이번 달 계산된 스코어가 아직 없습니다. 데이터가 쌓이면 여기에 분포가 표시됩니다.
+          </p>
+        ) : (
+          <Histogram scores={scoreResults.map((r) => r.finalScore)} />
+        )}
       </div>
 
       <p className="hint">

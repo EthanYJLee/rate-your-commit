@@ -60,4 +60,31 @@ describe("/ dashboard page", () => {
     expect(html).toContain('href="/scorecard"');
     expect(html).toContain('href="/identities"');
   });
+
+  it("renders a score-distribution histogram bucketed from finalScore", async () => {
+    mockPrisma.scoreResult.findMany.mockResolvedValue([
+      { finalScore: 55, grade: "C" },
+      { finalScore: 72, grade: "B" },
+      { finalScore: 91, grade: "S" },
+    ]);
+    mockPrisma.identity.count.mockResolvedValue(0);
+    mockPrisma.commit.count.mockResolvedValue(0);
+
+    const html = renderToStaticMarkup(await DashboardPage());
+
+    expect(html).toContain("전사 스코어 분포");
+    expect(html).toContain("60 미만");
+    expect(html).toContain("90+");
+  });
+
+  it("shows the histogram's empty state when nobody has a ScoreResult yet", async () => {
+    mockPrisma.scoreResult.findMany.mockResolvedValue([]);
+    mockPrisma.identity.count.mockResolvedValue(0);
+    mockPrisma.commit.count.mockResolvedValue(0);
+
+    const html = renderToStaticMarkup(await DashboardPage());
+
+    expect(html).toContain("전사 스코어 분포");
+    expect(html).toContain("이번 달 계산된 스코어가 아직 없습니다");
+  });
 });
