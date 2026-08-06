@@ -1,34 +1,50 @@
 /**
  * Sync worker entrypoint. Fetches commits/authors/tickets via
- * packages/connectors and persists them via packages/db.
+ * packages/connectors and persists them via packages/db, across
+ * every project configured in SYNC_PROJECTS (see parseProjectConfigs
+ * and .env.example) — GitHub/GitLab/Jira/Linear, any mix, any count.
  *
- * Persistence model per sync tick:
- *   1. Upsert the Project row for this connector+repo.
- *   2. Upsert an Identity row per distinct author (unresolved by
- *      default — see docs/ARCHITECTURE.md §3 / screen S-07. Nothing
- *      here auto-links an Identity to a Person; that's a human
- *      decision made in the S-07 UI).
- *   3. Upsert a Commit row per commit, linked to its Identity.
- *   4. Upsert a Ticket row per GitHub issue (PRs excluded — see
- *      packages/connectors/src/github/issues.ts). Not yet consumed by
- *      any scoring/aggregation code; this just lands the raw data.
- *   5. S-04: fetch weekly per-author contributor stats, run them
- *      through packages/metrics#detectOutlierWeeks, and flag every
- *      Commit in a flagged author-week as excluded (see that
- *      package's docstring for why the grain is "author-week", not
- *      "single commit").
- *   6. S-02: recompute a ScoreResult for every Person with any
- *      tracked activity, for the current calendar month. Idempotent
- *      upsert, so re-running mid-month just refreshes the same
- *      snapshot (see ScoreResult's schema comment).
+ * Persistence model per configured project, per sync tick:
+ *   1. Upsert the Project row for this connector+externalRef.
+ *   2. If the connector has a source (commits/authors — GitHub,
+ *      GitLab): upsert an Identity row per distinct author
+ *      (unresolved by default — see docs/ARCHITECTURE.md §3 / screen
+ *      S-07. Nothing here auto-links an Identity to a Person; that's
+ *      a human decision made in the S-07 UI), then upsert a Commit
+ *      row per commit, linked to its Identity.
+ *   3. If the connector has a tracker (tickets — GitHub, Jira,
+ *      Linear): upsert a Ticket row per ticket.
+ *   4. GitHub only: S-04 — fetch weekly per-author contributor
+ *      stats, run them through packages/metrics#detectOutlierWeeks,
+ *      and flag every Commit in a flagged author-week as excluded
+ *      (see that package's docstring for why the grain is
+ *      "author-week", not "single commit"). GitLab's connector
+ *      already gets per-commit stats for free (see its doc comment)
+ *      but nothing here aggregates them into weekly stats yet —
+ *      deferred, not forgotten.
+ *   5. Once every configured project has synced (each project's
+ *      failure is caught and logged independently — one bad project
+ *      doesn't block the rest): S-02 recomputes a ScoreResult for
+ *      every Person with any tracked activity, for the current
+ *      calendar month. Idempotent upsert, so re-running mid-month
+ *      just refreshes the same snapshot (see ScoreResult's schema
+ *      comment).
  */
-import { GitHubConnector, GitHubIssuesConnector } from "@rateyourcommit/connectors";
-import type { RawIdentity, RawTicket } from "@rateyourcommit/connectors";
+import {
+  GitHubConnector,
+  GitHubIssuesConnector,
+  GitLabConnector,
+  JiraConnector,
+  LinearConnector,
+} from "@rateyourcommit/connectors";
+import type { RawCommit, RawIdentity, RawTicket } from "@rateyourcommit/connectors";
 import { computeAxisMetrics, currentMonthPeriod, detectOutlierWeeks } from "@rateyourcommit/metrics";
 import type { OutlierWeek } from "@rateyourcommit/metrics";
 import { assignGrade, calculateScore } from "@rateyourcommit/scoring";
 import type { AxisWeights } from "@rateyourcommit/scoring";
 import { DEFAULT_ORGANIZATION_ID, prisma } from "@rateyourcommit/db";
+import type { ProjectConfig } from "./parseProjectConfigs";
+import { parseProjectConfigs } from "./parseProjectConfigs";
 
 const SYNC_INTERVAL_MS = 15 * 60 * 1000; // 15 minutes
 
@@ -39,7 +55,7 @@ function identityKey(identity: Pick<RawIdentity, "handle" | "email">): string {
 async function persist(
   projectId: string,
   authors: RawIdentity[],
-  commits: Awaited<ReturnType<GitHubConnector["fetchCommits"]>>
+  commits: RawCommit[]
 ): Promise<{ identityCount: number; commitCount: number }> {
   const identityIdByKey = new Map<string, string>();
 
@@ -224,60 +240,146 @@ export async function computeAndPersistScores(): Promise<number> {
   return scoredCount;
 }
 
-async function runSync(): Promise<void> {
-  const token = process.env.GITHUB_TOKEN;
-  const repoSlug = process.env.GITHUB_REPOSITORY; // "owner/repo"
+/** Project.externalRef for a given config — paired with `connector`,
+ * uniquely identifies the Project row (see the connectorId_externalRef
+ * unique constraint in packages/db's schema). */
+function externalRefFor(config: ProjectConfig): string {
+  switch (config.connector) {
+    case "github":
+      return `${config.owner}/${config.repo}`;
+    case "gitlab":
+      return config.projectPath;
+    case "jira":
+      return config.projectKey;
+    case "linear":
+      return config.teamKey;
+  }
+}
 
-  if (!token || !repoSlug) {
+/**
+ * Syncs one configured project end to end (see the module doc comment
+ * for the full per-project persistence model). Exported for unit
+ * testing of externalRefFor's branches via the connector-selection
+ * logic below, without needing a live Prisma/network stack.
+ */
+async function syncProject(config: ProjectConfig): Promise<void> {
+  const externalRef = externalRefFor(config);
+  const project = await prisma.project.upsert({
+    where: { connectorId_externalRef: { connectorId: config.connector, externalRef } },
+    update: {},
+    create: { name: externalRef, connectorId: config.connector, externalRef },
+  });
+
+  console.log(`[worker] syncing ${config.connector}:${externalRef}...`);
+
+  let identityCount = 0;
+  let commitCount = 0;
+  let ticketCount = 0;
+  let flaggedCommitCount = 0;
+
+  switch (config.connector) {
+    case "github": {
+      const source = new GitHubConnector({
+        owner: config.owner,
+        repo: config.repo,
+        token: process.env.GITHUB_TOKEN,
+      });
+      const tracker = new GitHubIssuesConnector({
+        owner: config.owner,
+        repo: config.repo,
+        token: process.env.GITHUB_TOKEN,
+      });
+      const [authors, commits, tickets, contributorStats] = await Promise.all([
+        source.fetchAuthors(),
+        source.fetchCommits(new Date(0)), // full history — see docs/ARCHITECTURE.md decision log
+        tracker.fetchTickets(new Date(0)), // full history, same rationale
+        source.fetchContributorStats(), // S-04 — see applyOutlierFlags
+      ]);
+
+      ({ identityCount, commitCount } = await persist(project.id, authors, commits));
+      ticketCount = await persistTickets(project.id, tickets);
+
+      if (contributorStats.status === "ready") {
+        flaggedCommitCount = await applyOutlierFlags(
+          project.id,
+          detectOutlierWeeks(contributorStats.stats)
+        );
+      } else {
+        console.log(
+          `[worker] contributor stats not ready yet for ${externalRef} (GitHub still computing) — ` +
+            `will retry next sync tick`
+        );
+      }
+      break;
+    }
+    case "gitlab": {
+      const source = new GitLabConnector({
+        projectPath: config.projectPath,
+        baseUrl: config.baseUrl,
+        token: process.env.GITLAB_TOKEN,
+      });
+      const [authors, commits] = await Promise.all([
+        source.fetchAuthors(),
+        source.fetchCommits(new Date(0)),
+      ]);
+      ({ identityCount, commitCount } = await persist(project.id, authors, commits));
+      break;
+    }
+    case "jira": {
+      const tracker = new JiraConnector({
+        baseUrl: config.baseUrl,
+        projectKey: config.projectKey,
+        email: process.env.JIRA_EMAIL,
+        apiToken: process.env.JIRA_API_TOKEN,
+      });
+      ticketCount = await persistTickets(project.id, await tracker.fetchTickets(new Date(0)));
+      break;
+    }
+    case "linear": {
+      const tracker = new LinearConnector({
+        teamKey: config.teamKey,
+        apiKey: process.env.LINEAR_API_KEY,
+      });
+      ticketCount = await persistTickets(project.id, await tracker.fetchTickets(new Date(0)));
+      break;
+    }
+  }
+
+  console.log(
+    `[worker] synced ${externalRef}: ${identityCount} identities, ${commitCount} commits, ` +
+      `${ticketCount} tickets persisted, ${flaggedCommitCount} commits flagged as LOC outliers`
+  );
+}
+
+async function runSync(): Promise<void> {
+  let configs: ProjectConfig[];
+  try {
+    configs = parseProjectConfigs(process.env.SYNC_PROJECTS);
+  } catch (err) {
+    console.error("[worker] invalid SYNC_PROJECTS, skipping this sync tick:", err);
+    return;
+  }
+
+  if (configs.length === 0) {
     console.log(
-      `[worker] sync tick at ${new Date().toISOString()} — GITHUB_TOKEN/GITHUB_REPOSITORY not set, skipping`
+      `[worker] sync tick at ${new Date().toISOString()} — SYNC_PROJECTS not set, skipping`
     );
     return;
   }
 
-  const [owner, repo] = repoSlug.split("/");
-  const connector = new GitHubConnector({ owner, repo, token });
-  const issuesConnector = new GitHubIssuesConnector({ owner, repo, token });
-
-  console.log(`[worker] syncing ${owner}/${repo}...`);
-  try {
-    const project = await prisma.project.upsert({
-      where: { connectorId_externalRef: { connectorId: "github", externalRef: repoSlug } },
-      update: {},
-      create: { name: repoSlug, connectorId: "github", externalRef: repoSlug },
-    });
-
-    const [authors, commits, tickets, contributorStats] = await Promise.all([
-      connector.fetchAuthors(),
-      connector.fetchCommits(new Date(0)), // full history — see docs/ARCHITECTURE.md decision log
-      issuesConnector.fetchTickets(new Date(0)), // full history, same rationale
-      connector.fetchContributorStats(), // S-04 — see applyOutlierFlags
-    ]);
-
-    const { identityCount, commitCount } = await persist(project.id, authors, commits);
-    const ticketCount = await persistTickets(project.id, tickets);
-
-    let flaggedCommitCount = 0;
-    if (contributorStats.status === "ready") {
-      const outlierWeeks = detectOutlierWeeks(contributorStats.stats);
-      flaggedCommitCount = await applyOutlierFlags(project.id, outlierWeeks);
-    } else {
-      console.log(
-        `[worker] contributor stats not ready yet for ${owner}/${repo} (GitHub still computing) — ` +
-          `will retry next sync tick`
-      );
+  for (const config of configs) {
+    try {
+      await syncProject(config);
+    } catch (err) {
+      // One project's failure shouldn't block the rest — a real
+      // behavior change from the old single-project worker, where an
+      // uncaught error just aborted the whole tick silently.
+      console.error(`[worker] sync failed for ${config.connector}:${externalRefFor(config)}:`, err);
     }
-
-    const scoredCount = await computeAndPersistScores();
-
-    console.log(
-      `[worker] synced ${owner}/${repo}: ${identityCount} identities, ${commitCount} commits, ` +
-        `${ticketCount} tickets persisted, ${flaggedCommitCount} commits flagged as LOC outliers, ` +
-        `${scoredCount} people scored for the current period`
-    );
-  } catch (err) {
-    console.error("[worker] sync failed:", err);
   }
+
+  const scoredCount = await computeAndPersistScores();
+  console.log(`[worker] ${scoredCount} people scored for the current period`);
 }
 
 async function main(): Promise<void> {
