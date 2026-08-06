@@ -18,3 +18,5 @@ export type {
   GitHubIssuesConnectorOptions,
   IssuesOctokitLike,
 } from "./github/issues";
+export { GitLabConnector, GitLabConnectorError } from "./gitlab";
+export type { GitLabConnectorOptions, GitLabHttpClient } from "./gitlab";
