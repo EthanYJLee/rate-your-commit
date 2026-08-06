@@ -23,7 +23,7 @@ describe("/ dashboard page", () => {
     mockPrisma.identity.count.mockResolvedValue(0);
     mockPrisma.commit.count.mockResolvedValue(0);
 
-    const html = renderToStaticMarkup(await DashboardPage());
+    const html = renderToStaticMarkup(await DashboardPage({ searchParams: Promise.resolve({}) }));
 
     expect(html).toContain("—");
   });
@@ -34,7 +34,7 @@ describe("/ dashboard page", () => {
     mockPrisma.commit.count.mockResolvedValue(0);
     mockAuth.mockResolvedValueOnce({ user: { personId: "person-1" } });
 
-    const html = renderToStaticMarkup(await DashboardPage());
+    const html = renderToStaticMarkup(await DashboardPage({ searchParams: Promise.resolve({}) }));
 
     expect(html).toContain('href="/scorecard/person-1"');
     expect(html).toContain("내 스코어카드");
@@ -46,7 +46,7 @@ describe("/ dashboard page", () => {
     mockPrisma.commit.count.mockResolvedValue(0);
     mockAuth.mockResolvedValueOnce({ user: { login: "octocat" } });
 
-    const html = renderToStaticMarkup(await DashboardPage());
+    const html = renderToStaticMarkup(await DashboardPage({ searchParams: Promise.resolve({}) }));
 
     expect(html).not.toContain("내 스코어카드");
   });
@@ -60,7 +60,7 @@ describe("/ dashboard page", () => {
     mockPrisma.identity.count.mockResolvedValue(2);
     mockPrisma.commit.count.mockResolvedValue(1);
 
-    const html = renderToStaticMarkup(await DashboardPage());
+    const html = renderToStaticMarkup(await DashboardPage({ searchParams: Promise.resolve({}) }));
 
     expect(html).toContain("80"); // (90+70+80)/3 = 80
     expect(html).toContain("미해결 아이덴티티 큐");
@@ -71,7 +71,7 @@ describe("/ dashboard page", () => {
     mockPrisma.identity.count.mockResolvedValue(0);
     mockPrisma.commit.count.mockResolvedValue(0);
 
-    await DashboardPage();
+    await DashboardPage({ searchParams: Promise.resolve({}) });
 
     const call = mockPrisma.commit.count.mock.calls[0][0];
     expect(call.where.excludedFlag).toBe(true);
@@ -84,7 +84,7 @@ describe("/ dashboard page", () => {
     mockPrisma.identity.count.mockResolvedValue(0);
     mockPrisma.commit.count.mockResolvedValue(0);
 
-    const html = renderToStaticMarkup(await DashboardPage());
+    const html = renderToStaticMarkup(await DashboardPage({ searchParams: Promise.resolve({}) }));
 
     expect(html).toContain('href="/scorecard"');
     expect(html).toContain('href="/identities"');
@@ -99,7 +99,7 @@ describe("/ dashboard page", () => {
     mockPrisma.identity.count.mockResolvedValue(0);
     mockPrisma.commit.count.mockResolvedValue(0);
 
-    const html = renderToStaticMarkup(await DashboardPage());
+    const html = renderToStaticMarkup(await DashboardPage({ searchParams: Promise.resolve({}) }));
 
     expect(html).toContain("전사 스코어 분포");
     expect(html).toContain("60 미만");
@@ -111,10 +111,10 @@ describe("/ dashboard page", () => {
     mockPrisma.identity.count.mockResolvedValue(0);
     mockPrisma.commit.count.mockResolvedValue(0);
 
-    const html = renderToStaticMarkup(await DashboardPage());
+    const html = renderToStaticMarkup(await DashboardPage({ searchParams: Promise.resolve({}) }));
 
     expect(html).toContain("전사 스코어 분포");
-    expect(html).toContain("이번 달 계산된 스코어가 아직 없습니다");
+    expect(html).toContain("계산된 스코어가 아직 없습니다");
   });
 
   it("renders a per-team score comparison, bucketing people with no team under 미배정", async () => {
@@ -126,11 +126,29 @@ describe("/ dashboard page", () => {
     mockPrisma.identity.count.mockResolvedValue(0);
     mockPrisma.commit.count.mockResolvedValue(0);
 
-    const html = renderToStaticMarkup(await DashboardPage());
+    const html = renderToStaticMarkup(await DashboardPage({ searchParams: Promise.resolve({}) }));
 
     expect(html).toContain("팀별 성과 비교");
     expect(html).toContain("정산팀");
     expect(html).toContain("미배정");
+  });
+
+  it("uses the ?period= query param to query a different month instead of the current one", async () => {
+    mockPrisma.scoreResult.findMany.mockResolvedValue([]);
+    mockPrisma.identity.count.mockResolvedValue(0);
+    mockPrisma.commit.count.mockResolvedValue(0);
+
+    const html = renderToStaticMarkup(
+      await DashboardPage({ searchParams: Promise.resolve({ period: "2026-03" }) })
+    );
+
+    expect(html).toContain("2026년 3월 요약");
+    // This file has no beforeEach mock-history reset, so
+    // mock.calls[0] would be a stale call from an earlier test —
+    // .at(-2) is this test's own main query (the last call, at(-1),
+    // is listAvailablePeriods' separate distinct-periods query).
+    const call = mockPrisma.scoreResult.findMany.mock.calls.at(-2)![0];
+    expect(call.where.periodStart).toEqual(new Date(Date.UTC(2026, 2, 1)));
   });
 
   it("shows the team chart's empty state when nobody has a ScoreResult yet", async () => {
@@ -138,7 +156,7 @@ describe("/ dashboard page", () => {
     mockPrisma.identity.count.mockResolvedValue(0);
     mockPrisma.commit.count.mockResolvedValue(0);
 
-    const html = renderToStaticMarkup(await DashboardPage());
+    const html = renderToStaticMarkup(await DashboardPage({ searchParams: Promise.resolve({}) }));
 
     expect(html).toContain("팀별 성과 비교");
   });

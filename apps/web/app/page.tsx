@@ -1,9 +1,11 @@
 import { prisma } from "@rateyourcommit/db";
-import { currentMonthPeriod } from "@rateyourcommit/metrics";
 import type { Grade } from "@rateyourcommit/scoring";
 import { auth } from "../auth";
 import { Histogram } from "../components/charts/Histogram";
 import { HorizontalBarChart } from "../components/charts/HorizontalBarChart";
+import { PeriodPicker } from "../components/PeriodPicker";
+import { listAvailablePeriods } from "../lib/available-periods";
+import { parsePeriodParam, periodLabel } from "../lib/period-param";
 import { groupScoresByTeam } from "../lib/team-aggregation";
 
 export const dynamic = "force-dynamic";
@@ -30,24 +32,31 @@ function StatCard({ label, value, href }: { label: string; value: string; href?:
   );
 }
 
-export default async function DashboardPage() {
-  const period = currentMonthPeriod();
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ period?: string }>;
+}) {
+  const { period: periodParamValue } = await searchParams;
+  const period = parsePeriodParam(periodParamValue);
   const session = await auth();
   // Set only for a Credentials (AppUser) sign-in an admin has linked
   // to a Person on /settings/app-users — convenience only, see
   // AppUser.personId's schema doc comment.
   const myPersonId = session?.user?.personId;
 
-  const [scoreResults, pendingIdentityCount, outlierCommitCount] = await Promise.all([
-    prisma.scoreResult.findMany({
-      where: { periodStart: period.start, periodEnd: period.end },
-      include: { person: { select: { team: { select: { name: true } } } } },
-    }),
-    prisma.identity.count({ where: { personId: null } }),
-    prisma.commit.count({
-      where: { excludedFlag: true, authoredAt: { gte: period.start, lt: period.end } },
-    }),
-  ]);
+  const [scoreResults, pendingIdentityCount, outlierCommitCount, availablePeriods] =
+    await Promise.all([
+      prisma.scoreResult.findMany({
+        where: { periodStart: period.start, periodEnd: period.end },
+        include: { person: { select: { team: { select: { name: true } } } } },
+      }),
+      prisma.identity.count({ where: { personId: null } }),
+      prisma.commit.count({
+        where: { excludedFlag: true, authoredAt: { gte: period.start, lt: period.end } },
+      }),
+      listAvailablePeriods(),
+    ]);
 
   const teamAverages = groupScoresByTeam(
     scoreResults.map((r) => ({ teamName: r.person?.team?.name ?? null, finalScore: r.finalScore })),
@@ -66,12 +75,12 @@ export default async function DashboardPage() {
   return (
     <main className="page">
       <p className="eyebrow">S-01 · 대시보드</p>
-      <h1 className="page-title">
-        {period.start.getUTCFullYear()}년 {period.start.getUTCMonth() + 1}월 요약
-      </h1>
+      <h1 className="page-title">{periodLabel(period)} 요약</h1>
       <p className="page-subtitle">
         아래 세 지표는 S-07·S-04·S-02 화면의 데이터를 그대로 집계한 값입니다.
       </p>
+
+      <PeriodPicker action="/" selected={period} availablePeriods={availablePeriods} />
 
       {myPersonId && (
         <p className="hint">
@@ -81,12 +90,12 @@ export default async function DashboardPage() {
 
       <div className="stat-grid">
         <StatCard
-          label="이번 달 평균 점수"
+          label={`${periodLabel(period)} 평균 점수`}
           value={averageScore !== null ? String(averageScore) : "—"}
           href="/scorecard"
         />
         <StatCard label="미해결 아이덴티티 큐" value={String(pendingIdentityCount)} href="/identities" />
-        <StatCard label="이번 달 LOC 이상치 커밋" value={String(outlierCommitCount)} />
+        <StatCard label={`${periodLabel(period)} LOC 이상치 커밋`} value={String(outlierCommitCount)} />
       </div>
 
       <h2 style={{ fontSize: "1.05rem", margin: "0 0 .8rem" }}>등급 분포</h2>
@@ -104,7 +113,7 @@ export default async function DashboardPage() {
           <h2 className="chart-card__title">팀별 성과 비교</h2>
           {scoreResults.length === 0 ? (
             <p className="empty-state">
-              이번 달 계산된 스코어가 아직 없습니다. 데이터가 쌓이면 여기에 비교가 표시됩니다.
+              {periodLabel(period)}에 계산된 스코어가 아직 없습니다. 데이터가 쌓이면 여기에 비교가 표시됩니다.
             </p>
           ) : (
             <HorizontalBarChart
@@ -116,7 +125,7 @@ export default async function DashboardPage() {
           <h2 className="chart-card__title">전사 스코어 분포</h2>
           {scoreResults.length === 0 ? (
             <p className="empty-state">
-              이번 달 계산된 스코어가 아직 없습니다. 데이터가 쌓이면 여기에 분포가 표시됩니다.
+              {periodLabel(period)}에 계산된 스코어가 아직 없습니다. 데이터가 쌓이면 여기에 분포가 표시됩니다.
             </p>
           ) : (
             <Histogram scores={scoreResults.map((r) => r.finalScore)} />

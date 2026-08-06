@@ -60,26 +60,29 @@ export default async function TeamSettingsPage({
       {people.length === 0 ? (
         <p className="empty-state">아직 등록된 인물이 없습니다.</p>
       ) : (
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>이름</th>
-              <th>현재 팀</th>
-              <th>배정</th>
-            </tr>
-          </thead>
-          <tbody>
-            {people.map((person) => (
-              <tr key={person.id}>
-                <td>{person.displayName}</td>
-                <td>{person.team?.name ?? "미배정"}</td>
-                <td>
-                  <form
-                    action={`/api/people/${person.id}/team`}
-                    method="POST"
-                    className="field-row"
-                  >
-                    <select name="teamId" defaultValue={person.teamId ?? ""} className="select">
+        <form action="/api/settings/teams/bulk-assign" method="POST">
+          <p className="hint" style={{ marginTop: 0 }}>
+            여러 명의 배정을 각자 바꾼 뒤, 아래에서 한 번에 저장할 수 있습니다.
+          </p>
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>이름</th>
+                <th>현재 팀</th>
+                <th>배정</th>
+              </tr>
+            </thead>
+            <tbody>
+              {people.map((person) => (
+                <tr key={person.id}>
+                  <td>{person.displayName}</td>
+                  <td>{person.team?.name ?? "미배정"}</td>
+                  <td>
+                    <select
+                      name={`team_${person.id}`}
+                      defaultValue={person.teamId ?? ""}
+                      className="select"
+                    >
                       <option value="">— 미배정 —</option>
                       {teams.map((team) => (
                         <option key={team.id} value={team.id}>
@@ -87,15 +90,15 @@ export default async function TeamSettingsPage({
                         </option>
                       ))}
                     </select>
-                    <button type="submit" className="button button--small">
-                      저장
-                    </button>
-                  </form>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <button type="submit" className="button button--primary" style={{ marginTop: "1rem" }}>
+            전체 저장
+          </button>
+        </form>
       )}
     </main>
   );

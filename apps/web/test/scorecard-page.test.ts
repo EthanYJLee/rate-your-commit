@@ -16,9 +16,9 @@ describe("/scorecard page", () => {
     mockPrisma.scoreResult.findMany.mockResolvedValue([]);
     mockPrisma.identity.count.mockResolvedValue(0);
 
-    const html = renderToStaticMarkup(await ScorecardPage());
+    const html = renderToStaticMarkup(await ScorecardPage({ searchParams: Promise.resolve({}) }));
 
-    expect(html).toContain("이번 달 계산된 스코어가 아직 없습니다");
+    expect(html).toContain("계산된 스코어가 아직 없습니다");
   });
 
   it("renders each person's axis scores, final score, and grade", async () => {
@@ -36,7 +36,7 @@ describe("/scorecard page", () => {
     ]);
     mockPrisma.identity.count.mockResolvedValue(0);
 
-    const html = renderToStaticMarkup(await ScorecardPage());
+    const html = renderToStaticMarkup(await ScorecardPage({ searchParams: Promise.resolve({}) }));
 
     expect(html).toContain("Alice Real");
     expect(html).toContain("87.5");
@@ -47,9 +47,9 @@ describe("/scorecard page", () => {
     mockPrisma.scoreResult.findMany.mockResolvedValue([]);
     mockPrisma.identity.count.mockResolvedValue(0);
 
-    await ScorecardPage();
+    await ScorecardPage({ searchParams: Promise.resolve({}) });
 
-    const call = mockPrisma.scoreResult.findMany.mock.calls[0][0];
+    const call = mockPrisma.scoreResult.findMany.mock.calls.at(-2)![0];
     expect(call.where.periodStart).toBeInstanceOf(Date);
     expect(call.where.periodEnd.getTime()).toBeGreaterThan(call.where.periodStart.getTime());
   });
@@ -58,7 +58,7 @@ describe("/scorecard page", () => {
     mockPrisma.scoreResult.findMany.mockResolvedValue([]);
     mockPrisma.identity.count.mockResolvedValue(3);
 
-    const html = renderToStaticMarkup(await ScorecardPage());
+    const html = renderToStaticMarkup(await ScorecardPage({ searchParams: Promise.resolve({}) }));
 
     expect(html).toContain("미해결 아이덴티티가 3개 있습니다");
     expect(mockPrisma.identity.count).toHaveBeenCalledWith({ where: { personId: null } });
@@ -68,7 +68,7 @@ describe("/scorecard page", () => {
     mockPrisma.scoreResult.findMany.mockResolvedValue([]);
     mockPrisma.identity.count.mockResolvedValue(0);
 
-    const html = renderToStaticMarkup(await ScorecardPage());
+    const html = renderToStaticMarkup(await ScorecardPage({ searchParams: Promise.resolve({}) }));
 
     expect(html).not.toContain("미해결 아이덴티티가");
   });

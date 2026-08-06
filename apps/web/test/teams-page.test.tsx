@@ -47,7 +47,11 @@ describe("/settings/teams page", () => {
 
     const html = renderToStaticMarkup(await TeamSettingsPage(props()));
 
-    expect(html).toContain('action="/api/people/person-1/team"');
+    // One shared form (bulk save), not one form per row — each
+    // person's <select> just carries a per-person name so the bulk
+    // route can tell them apart.
+    expect(html).toContain('action="/api/settings/teams/bulk-assign"');
+    expect(html).toContain('name="team_person-1"');
     expect(html).toContain('value="team-1" selected');
     expect(html).toContain("미배정");
   });

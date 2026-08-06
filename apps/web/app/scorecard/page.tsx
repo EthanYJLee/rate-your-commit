@@ -1,5 +1,7 @@
 import { prisma } from "@rateyourcommit/db";
-import { currentMonthPeriod } from "@rateyourcommit/metrics";
+import { PeriodPicker } from "../../components/PeriodPicker";
+import { listAvailablePeriods } from "../../lib/available-periods";
+import { parsePeriodParam, periodLabel } from "../../lib/period-param";
 
 export const dynamic = "force-dynamic";
 
@@ -10,29 +12,33 @@ const AXIS_LABEL = {
   evaluation: "동료평가",
 } as const;
 
-function formatPeriodLabel(start: Date): string {
-  return `${start.getUTCFullYear()}년 ${start.getUTCMonth() + 1}월`;
-}
+export default async function ScorecardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ period?: string }>;
+}) {
+  const { period: periodParamValue } = await searchParams;
+  const period = parsePeriodParam(periodParamValue);
 
-export default async function ScorecardPage() {
-  const period = currentMonthPeriod();
-
-  const [results, pendingIdentityCount] = await Promise.all([
+  const [results, pendingIdentityCount, availablePeriods] = await Promise.all([
     prisma.scoreResult.findMany({
       where: { periodStart: period.start, periodEnd: period.end },
       include: { person: true },
       orderBy: { finalScore: "desc" },
     }),
     prisma.identity.count({ where: { personId: null } }),
+    listAvailablePeriods(),
   ]);
 
   return (
     <main className="page">
       <p className="eyebrow">S-02 · 개인 스코어카드</p>
-      <h1 className="page-title">{formatPeriodLabel(period.start)} 스코어</h1>
+      <h1 className="page-title">{periodLabel(period)} 스코어</h1>
       <p className="page-subtitle" style={{ marginBottom: ".5rem" }}>
         총 {results.length}명 · DB에서 실시간 조회
       </p>
+
+      <PeriodPicker action="/scorecard" selected={period} availablePeriods={availablePeriods} />
 
       {pendingIdentityCount > 0 && (
         <p className="warning-banner">
@@ -50,8 +56,9 @@ export default async function ScorecardPage() {
 
       {results.length === 0 ? (
         <p className="empty-state">
-          이번 달 계산된 스코어가 아직 없습니다. <code>apps/worker</code>가 최소 한 번
-          동기화를 완료하고, S-07에서 identity가 Person으로 병합돼야 스코어가 계산됩니다.
+          {periodLabel(period)}에 계산된 스코어가 아직 없습니다. <code>apps/worker</code>가
+          해당 기간에 최소 한 번 동기화를 완료하고, S-07에서 identity가 Person으로
+          병합돼야 스코어가 계산됩니다.
         </p>
       ) : (
         <table className="data-table">
