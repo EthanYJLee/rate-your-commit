@@ -34,6 +34,7 @@ import {
   GitHubConnector,
   GitHubIssuesConnector,
   GitLabConnector,
+  GitLabIssuesConnector,
   JiraConnector,
   LinearConnector,
 } from "@rateyourcommit/connectors";
@@ -318,11 +319,21 @@ async function syncProject(config: ProjectConfig): Promise<void> {
         baseUrl: config.baseUrl,
         token: process.env.GITLAB_TOKEN,
       });
-      const [authors, commits] = await Promise.all([
+      const tracker = new GitLabIssuesConnector({
+        projectPath: config.projectPath,
+        baseUrl: config.baseUrl,
+        token: process.env.GITLAB_TOKEN,
+      });
+      const [authors, commits, tickets] = await Promise.all([
         source.fetchAuthors(),
         source.fetchCommits(new Date(0)),
+        tracker.fetchTickets(new Date(0)),
       ]);
       ({ identityCount, commitCount } = await persist(project.id, authors, commits));
+      ticketCount = await persistTickets(project.id, tickets);
+      // No outlier detection (S-04) for GitLab yet — see the module
+      // doc comment: GitLabConnector's per-commit stats aren't
+      // aggregated into weekly outlier input anywhere yet.
       break;
     }
     case "jira": {

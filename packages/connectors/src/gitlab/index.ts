@@ -21,7 +21,9 @@ export interface GitLabHttpClient {
   get<T>(path: string, params: Record<string, string | number | boolean>): Promise<T>;
 }
 
-class FetchGitLabHttpClient implements GitLabHttpClient {
+/** Exported so gitlab/issues.ts can build the same real client rather
+ * than duplicating the fetch/auth-header logic. */
+export class FetchGitLabHttpClient implements GitLabHttpClient {
   constructor(
     private readonly baseUrl: string,
     private readonly token?: string
