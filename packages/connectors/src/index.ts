@@ -22,3 +22,5 @@ export { GitLabConnector, GitLabConnectorError } from "./gitlab";
 export type { GitLabConnectorOptions, GitLabHttpClient } from "./gitlab";
 export { JiraConnector, JiraConnectorError } from "./jira";
 export type { JiraConnectorOptions, JiraHttpClient } from "./jira";
+export { LinearConnector, LinearConnectorError } from "./linear";
+export type { LinearConnectorOptions, LinearGraphQLClient } from "./linear";
