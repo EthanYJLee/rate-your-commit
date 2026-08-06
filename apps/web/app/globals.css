@@ -608,6 +608,52 @@ a.stat-card:hover {
   margin-top: .4rem;
 }
 
+.hbar-chart {
+  display: flex;
+  flex-direction: column;
+  gap: .55rem;
+}
+
+.hbar-chart__row {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  font-size: .82rem;
+}
+
+.hbar-chart__label {
+  width: 6rem;
+  flex: none;
+  color: var(--ink-soft);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hbar-chart__track {
+  flex: 1;
+  height: 14px;
+  background: var(--surface-hover);
+  border-radius: 3px;
+  position: relative;
+  overflow: hidden;
+}
+
+.hbar-chart__fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--accent);
+  border-radius: 3px;
+}
+
+.hbar-chart__value {
+  width: 2.4rem;
+  flex: none;
+  text-align: right;
+  font-family: var(--font-mono);
+  font-weight: 700;
+}
+
 @media (max-width: 720px) {
   .chart-grid {
     grid-template-columns: 1fr;
