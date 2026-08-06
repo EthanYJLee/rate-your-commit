@@ -2,13 +2,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
 const mockPrisma = {
-  appUser: { create: vi.fn(), delete: vi.fn() },
+  appUser: { create: vi.fn(), delete: vi.fn(), update: vi.fn() },
 };
 
 vi.mock("@rateyourcommit/db", () => ({ prisma: mockPrisma }));
 
 const { POST } = await import("../app/api/settings/app-users/route");
 const { POST: revoke } = await import("../app/api/settings/app-users/[id]/revoke/route");
+const { POST: linkPerson } = await import("../app/api/settings/app-users/[id]/person/route");
 
 function formRequest(fields: Record<string, string>) {
   return new NextRequest("http://localhost/api/settings/app-users", {
@@ -99,5 +100,46 @@ describe("POST /api/settings/app-users/[id]/revoke", () => {
 
     expect(res.status).toBe(303);
     expect(res.headers.get("location")).toContain("error=");
+  });
+});
+
+describe("POST /api/settings/app-users/[id]/person", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  function personFormRequest(id: string, fields: Record<string, string>) {
+    return new NextRequest(`http://localhost/api/settings/app-users/${id}/person`, {
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams(fields).toString(),
+    });
+  }
+
+  it("links the AppUser to the given personId", async () => {
+    mockPrisma.appUser.update.mockResolvedValue({ id: "user-1", personId: "person-1" });
+
+    const res = await linkPerson(personFormRequest("user-1", { personId: "person-1" }), {
+      params: Promise.resolve({ id: "user-1" }),
+    });
+
+    expect(mockPrisma.appUser.update).toHaveBeenCalledWith({
+      where: { id: "user-1" },
+      data: { personId: "person-1" },
+    });
+    expect(res.status).toBe(303);
+  });
+
+  it("clears the link when personId is submitted empty", async () => {
+    mockPrisma.appUser.update.mockResolvedValue({ id: "user-1", personId: null });
+
+    await linkPerson(personFormRequest("user-1", { personId: "" }), {
+      params: Promise.resolve({ id: "user-1" }),
+    });
+
+    expect(mockPrisma.appUser.update).toHaveBeenCalledWith({
+      where: { id: "user-1" },
+      data: { personId: null },
+    });
   });
 });

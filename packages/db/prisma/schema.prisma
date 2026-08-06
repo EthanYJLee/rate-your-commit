@@ -20,6 +20,11 @@ model Person {
   identities  Identity[]
   scores      ScoreResult[]
   auditLogs   IdentityAuditLog[]
+  /// AppUser accounts (email/password sign-in) linked to this real
+  /// person, admin-assigned on /settings/app-users — convenience only
+  /// (a "내 스코어카드" quick link), not an access restriction; see
+  /// AppUser.personId's doc comment.
+  appUsers    AppUser[]
   /// Null until an admin assigns one on /settings/teams — no
   /// connector reports team membership, so this is manual-only.
   team        Team?      @relation(fields: [teamId], references: [id])
@@ -182,5 +187,12 @@ model AppUser {
   /// scrypt(password, salt), stored as "saltHex:hashHex" — see
   /// apps/web/lib/password.ts. Never a plaintext password.
   passwordHash String
+  /// Null until an admin links this account to a real Person on
+  /// /settings/app-users. Convenience only — surfaces a "내 스코어카드"
+  /// link on the dashboard for the linked person; the app has no
+  /// role/access-control system (deliberately, see backlog), so this
+  /// does NOT restrict what this account can see or do.
+  person       Person?  @relation(fields: [personId], references: [id])
+  personId     String?
   createdAt    DateTime @default(now())
 }

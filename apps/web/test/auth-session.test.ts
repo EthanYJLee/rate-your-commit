@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Session } from "next-auth";
-import { attachLoginToSession, attachLoginToToken } from "../lib/auth-session";
+import { attachLoginToSession, attachLoginToToken, attachPersonIdToToken } from "../lib/auth-session";
 
 describe("attachLoginToToken", () => {
   it("copies profile.login onto the token", () => {
@@ -40,6 +40,29 @@ describe("attachLoginToToken", () => {
   });
 });
 
+describe("attachPersonIdToToken", () => {
+  it("copies user.personId onto the token", () => {
+    const token = attachPersonIdToToken({}, { personId: "person-1" });
+    expect(token.personId).toBe("person-1");
+  });
+
+  it("leaves the token unchanged when user.personId is null (unlinked AppUser)", () => {
+    const token = attachPersonIdToToken({}, { personId: null });
+    expect(token.personId).toBeUndefined();
+  });
+
+  it("leaves the token unchanged when user is undefined (GitHub sign-in has no personId concept)", () => {
+    const token = attachPersonIdToToken({ personId: "person-1" }, undefined);
+    expect(token.personId).toBe("person-1");
+  });
+
+  it("does not mutate the input token", () => {
+    const original = {};
+    attachPersonIdToToken(original, { personId: "person-1" });
+    expect(original).toEqual({});
+  });
+});
+
 describe("attachLoginToSession", () => {
   it("copies token.login onto session.user", () => {
     const session = attachLoginToSession(
@@ -73,5 +96,21 @@ describe("attachLoginToSession", () => {
     const original = { user: { name: "Alice" }, expires: "2099-01-01" };
     attachLoginToSession(original, { login: "octocat" });
     expect(original.user).toEqual({ name: "Alice" });
+  });
+
+  it("copies token.personId onto session.user (linked AppUser)", () => {
+    const session = attachLoginToSession(
+      { user: { name: "Alice" }, expires: "2099-01-01" },
+      { login: "alice@example.com", personId: "person-1" },
+    );
+    expect(session.user?.personId).toBe("person-1");
+  });
+
+  it("leaves session.user.personId undefined when the token has none (GitHub sign-in, or an unlinked AppUser)", () => {
+    const session = attachLoginToSession(
+      { user: { name: "Alice" }, expires: "2099-01-01" },
+      { login: "octocat" },
+    );
+    expect(session.user?.personId).toBeUndefined();
   });
 });

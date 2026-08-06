@@ -9,7 +9,10 @@ export const dynamic = "force-dynamic";
  * types both the email and an initial password here and tells the
  * new user out of band (there's no email-sending infra in this
  * project — see docs' password-reset scope note). Mirrors the
- * /settings/teams page's create-form + list pattern.
+ * /settings/teams page's create-form + list pattern, including the
+ * per-row person-link dropdown (same pattern as that page's
+ * per-person team dropdown) — see AppUser.personId's schema doc
+ * comment for why this is a convenience link, not an access grant.
  */
 export default async function AppUsersSettingsPage({
   searchParams,
@@ -22,10 +25,13 @@ export default async function AppUsersSettingsPage({
   // even be pulled into the server's memory/render closure (security
   // review recommendation: defense-in-depth against a future refactor
   // accidentally exposing it).
-  const users = await prisma.appUser.findMany({
-    orderBy: { createdAt: "asc" },
-    select: { id: true, email: true, createdAt: true },
-  });
+  const [users, people] = await Promise.all([
+    prisma.appUser.findMany({
+      orderBy: { createdAt: "asc" },
+      select: { id: true, email: true, createdAt: true, personId: true },
+    }),
+    prisma.person.findMany({ orderBy: { displayName: "asc" } }),
+  ]);
 
   return (
     <main className="page">
@@ -34,7 +40,8 @@ export default async function AppUsersSettingsPage({
       <p className="page-subtitle">
         GitHub 계정이 없는 사람에게 발급하는 로그인 수단입니다. 가입 신청 없이 관리자가
         직접 발급하며, 비밀번호 재설정은 지원하지 않으니(잊어버리면 계정을 회수하고
-        새로 발급하세요) 발급한 비밀번호는 본인에게 직접 전달해 주세요.
+        새로 발급하세요) 발급한 비밀번호는 본인에게 직접 전달해 주세요. 인물과 연결하면
+        대시보드에 본인 스코어카드 바로가기가 뜨지만, 접근 권한 자체는 달라지지 않습니다.
       </p>
 
       {error && <p className="error-banner">{error}</p>}
@@ -67,6 +74,7 @@ export default async function AppUsersSettingsPage({
             <tr>
               <th>이메일</th>
               <th>발급일</th>
+              <th>연결된 인물</th>
               <th></th>
             </tr>
           </thead>
@@ -75,6 +83,25 @@ export default async function AppUsersSettingsPage({
               <tr key={user.id}>
                 <td>{user.email}</td>
                 <td>{user.createdAt.toISOString().slice(0, 10)}</td>
+                <td>
+                  <form
+                    action={`/api/settings/app-users/${user.id}/person`}
+                    method="POST"
+                    className="field-row"
+                  >
+                    <select name="personId" defaultValue={user.personId ?? ""} className="select">
+                      <option value="">— 미연결 —</option>
+                      {people.map((person) => (
+                        <option key={person.id} value={person.id}>
+                          {person.displayName}
+                        </option>
+                      ))}
+                    </select>
+                    <button type="submit" className="button button--small">
+                      저장
+                    </button>
+                  </form>
+                </td>
                 <td>
                   <form action={`/api/settings/app-users/${user.id}/revoke`} method="POST">
                     <button type="submit" className="button button--small">

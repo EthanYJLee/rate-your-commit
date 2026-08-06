@@ -28,11 +28,12 @@ describe("authenticateAppUser", () => {
       id: "user-1",
       email: "alice@example.com",
       passwordHash,
+      personId: null,
     });
 
     const result = await authenticateAppUser("alice@example.com", "correct-horse-battery-staple");
 
-    expect(result).toEqual({ id: "user-1", email: "alice@example.com" });
+    expect(result).toEqual({ id: "user-1", email: "alice@example.com", personId: null });
   });
 
   it("normalizes email case/whitespace before looking up", async () => {
@@ -41,6 +42,7 @@ describe("authenticateAppUser", () => {
       id: "user-1",
       email: "alice@example.com",
       passwordHash,
+      personId: null,
     });
 
     await authenticateAppUser("  Alice@Example.com  ", "correct-horse-battery-staple");
@@ -56,6 +58,7 @@ describe("authenticateAppUser", () => {
       id: "user-1",
       email: "alice@example.com",
       passwordHash,
+      personId: null,
     });
 
     const result = await authenticateAppUser("alice@example.com", "totally-wrong");
@@ -75,6 +78,7 @@ describe("authenticateAppUser", () => {
       id: "user-1",
       email: "alice@example.com",
       passwordHash,
+      personId: null,
     });
 
     for (let i = 0; i < 5; i++) {
@@ -103,6 +107,7 @@ describe("authenticateAppUser", () => {
       id: "user-1",
       email: "alice@example.com",
       passwordHash,
+      personId: null,
     });
 
     await authenticateAppUser("alice@example.com", "wrong-password");
@@ -116,12 +121,26 @@ describe("authenticateAppUser", () => {
       await authenticateAppUser("alice@example.com", "wrong-password");
     }
     const result = await authenticateAppUser("alice@example.com", "correct-horse-battery-staple");
-    expect(result).toEqual({ id: "user-1", email: "alice@example.com" });
+    expect(result).toEqual({ id: "user-1", email: "alice@example.com", personId: null });
   });
 
   it("returns null (not throw) for a missing/empty email or password", async () => {
     expect(await authenticateAppUser("", "correct-horse-battery-staple")).toBeNull();
     expect(await authenticateAppUser("alice@example.com", "")).toBeNull();
+  });
+
+  it("returns the linked personId when an admin has connected this account to a Person", async () => {
+    const passwordHash = await hashPassword("correct-horse-battery-staple");
+    mockPrisma.appUser.findUnique.mockResolvedValue({
+      id: "user-1",
+      email: "alice@example.com",
+      passwordHash,
+      personId: "person-1",
+    });
+
+    const result = await authenticateAppUser("alice@example.com", "correct-horse-battery-staple");
+
+    expect(result?.personId).toBe("person-1");
   });
 
   it("rejects an oversized password before doing any DB lookup or hashing (CPU-exhaustion guard)", async () => {

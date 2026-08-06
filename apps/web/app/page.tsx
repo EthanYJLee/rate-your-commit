@@ -1,6 +1,7 @@
 import { prisma } from "@rateyourcommit/db";
 import { currentMonthPeriod } from "@rateyourcommit/metrics";
 import type { Grade } from "@rateyourcommit/scoring";
+import { auth } from "../auth";
 import { Histogram } from "../components/charts/Histogram";
 import { HorizontalBarChart } from "../components/charts/HorizontalBarChart";
 import { groupScoresByTeam } from "../lib/team-aggregation";
@@ -31,6 +32,11 @@ function StatCard({ label, value, href }: { label: string; value: string; href?:
 
 export default async function DashboardPage() {
   const period = currentMonthPeriod();
+  const session = await auth();
+  // Set only for a Credentials (AppUser) sign-in an admin has linked
+  // to a Person on /settings/app-users — convenience only, see
+  // AppUser.personId's schema doc comment.
+  const myPersonId = session?.user?.personId;
 
   const [scoreResults, pendingIdentityCount, outlierCommitCount] = await Promise.all([
     prisma.scoreResult.findMany({
@@ -66,6 +72,12 @@ export default async function DashboardPage() {
       <p className="page-subtitle">
         아래 세 지표는 S-07·S-04·S-02 화면의 데이터를 그대로 집계한 값입니다.
       </p>
+
+      {myPersonId && (
+        <p className="hint">
+          <a href={`/scorecard/${myPersonId}`}>내 스코어카드 바로가기 →</a>
+        </p>
+      )}
 
       <div className="stat-grid">
         <StatCard

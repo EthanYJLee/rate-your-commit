@@ -2,7 +2,7 @@ import NextAuth from "next-auth";
 import GitHub from "next-auth/providers/github";
 import Credentials from "next-auth/providers/credentials";
 import { isLoginAllowed, parseAllowedLogins } from "./lib/auth-allowlist";
-import { attachLoginToSession, attachLoginToToken } from "./lib/auth-session";
+import { attachLoginToSession, attachLoginToToken, attachPersonIdToToken } from "./lib/auth-session";
 import { authenticateAppUser } from "./lib/authenticate-app-user";
 
 /**
@@ -18,8 +18,11 @@ import { authenticateAppUser } from "./lib/authenticate-app-user";
  *
  * Still JWT sessions, still no Prisma Adapter — AppUser is a plain
  * lookup table for authorize(), not an Auth.js Adapter User (see its
- * schema doc comment). Linking a signed-in identity (either path) to
- * a Person is a separate, later concern.
+ * schema doc comment). An AppUser can be linked to a Person
+ * (/settings/app-users) — convenience only (session.personId powers a
+ * "내 스코어카드" link), not an access restriction; see
+ * next-auth.d.ts. GitHub sign-ins have no equivalent yet (that path
+ * has no persisted row at all to attach a link to).
  */
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
@@ -51,11 +54,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       return isLoginAllowed(login, allowedLogins);
     },
     async jwt({ token, profile, user }) {
-      return attachLoginToToken(
+      const withLogin = attachLoginToToken(
         token,
         profile as { login?: string } | undefined,
         user as { email?: string | null } | undefined
       );
+      return attachPersonIdToToken(withLogin, user as { personId?: string | null } | undefined);
     },
     async session({ session, token }) {
       return attachLoginToSession(session, token);

@@ -9,6 +9,12 @@ const mockPrisma = {
 
 vi.mock("@rateyourcommit/db", () => ({ prisma: mockPrisma }));
 
+const mockAuth = vi.fn().mockResolvedValue(null);
+// Mocked for the same reason every other page/route test mocks
+// "../auth": an unmocked `import ... from "next-auth"` fails to
+// resolve "next/server" under Vitest — see credentials-sign-in.ts.
+vi.mock("../auth", () => ({ auth: mockAuth }));
+
 const { default: DashboardPage } = await import("../app/page");
 
 describe("/ dashboard page", () => {
@@ -20,6 +26,29 @@ describe("/ dashboard page", () => {
     const html = renderToStaticMarkup(await DashboardPage());
 
     expect(html).toContain("—");
+  });
+
+  it("shows a '내 스코어카드' link when the signed-in AppUser is linked to a Person", async () => {
+    mockPrisma.scoreResult.findMany.mockResolvedValue([]);
+    mockPrisma.identity.count.mockResolvedValue(0);
+    mockPrisma.commit.count.mockResolvedValue(0);
+    mockAuth.mockResolvedValueOnce({ user: { personId: "person-1" } });
+
+    const html = renderToStaticMarkup(await DashboardPage());
+
+    expect(html).toContain('href="/scorecard/person-1"');
+    expect(html).toContain("내 스코어카드");
+  });
+
+  it("does not show the '내 스코어카드' link when there's no linked person (GitHub sign-in, or an unlinked AppUser)", async () => {
+    mockPrisma.scoreResult.findMany.mockResolvedValue([]);
+    mockPrisma.identity.count.mockResolvedValue(0);
+    mockPrisma.commit.count.mockResolvedValue(0);
+    mockAuth.mockResolvedValueOnce({ user: { login: "octocat" } });
+
+    const html = renderToStaticMarkup(await DashboardPage());
+
+    expect(html).not.toContain("내 스코어카드");
   });
 
   it("computes the average score and grade distribution from ScoreResult rows", async () => {

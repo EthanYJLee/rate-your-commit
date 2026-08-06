@@ -5,6 +5,9 @@ import { MAX_PASSWORD_LENGTH, verifyPassword } from "./password";
 export interface AuthenticatedAppUser {
   id: string;
   email: string;
+  /** Null unless an admin linked this account to a Person on
+   * /settings/app-users — see AppUser.personId's schema doc comment. */
+  personId: string | null;
 }
 
 /**
@@ -42,5 +45,5 @@ export async function authenticateAppUser(
   if (!isValid) return null;
 
   clearFailedAttempts(normalizedEmail);
-  return { id: user.id, email: user.email };
+  return { id: user.id, email: user.email, personId: user.personId };
 }

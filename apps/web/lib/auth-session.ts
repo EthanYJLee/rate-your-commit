@@ -29,8 +29,25 @@ export function attachLoginToToken(
   return { ...token, login };
 }
 
+/**
+ * Persists the Credentials (AppUser) sign-in's linked Person, if any
+ * — an admin sets this on /settings/app-users, never derived from
+ * GitHub. Convenience only (see next-auth.d.ts's doc comment): used
+ * to surface a "내 스코어카드" link, not to restrict access.
+ */
+export function attachPersonIdToToken(token: JWT, user?: { personId?: string | null }): JWT {
+  const personId = user?.personId;
+  if (!personId) return token;
+  return { ...token, personId };
+}
+
 export function attachLoginToSession(session: Session, token: JWT): Session {
-  const login = token.login;
-  if (!login || !session.user) return session;
-  return { ...session, user: { ...session.user, login } };
+  if (!session.user) return session;
+
+  const withLogin = token.login ? { ...session.user, login: token.login } : session.user;
+  const withPersonId = token.personId
+    ? { ...withLogin, personId: token.personId }
+    : withLogin;
+
+  return { ...session, user: withPersonId };
 }
