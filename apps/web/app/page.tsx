@@ -2,6 +2,8 @@ import { prisma } from "@rateyourcommit/db";
 import { currentMonthPeriod } from "@rateyourcommit/metrics";
 import type { Grade } from "@rateyourcommit/scoring";
 import { Histogram } from "../components/charts/Histogram";
+import { HorizontalBarChart } from "../components/charts/HorizontalBarChart";
+import { groupScoresByTeam } from "../lib/team-aggregation";
 
 export const dynamic = "force-dynamic";
 
@@ -31,12 +33,19 @@ export default async function DashboardPage() {
   const period = currentMonthPeriod();
 
   const [scoreResults, pendingIdentityCount, outlierCommitCount] = await Promise.all([
-    prisma.scoreResult.findMany({ where: { periodStart: period.start, periodEnd: period.end } }),
+    prisma.scoreResult.findMany({
+      where: { periodStart: period.start, periodEnd: period.end },
+      include: { person: { select: { team: { select: { name: true } } } } },
+    }),
     prisma.identity.count({ where: { personId: null } }),
     prisma.commit.count({
       where: { excludedFlag: true, authoredAt: { gte: period.start, lt: period.end } },
     }),
   ]);
+
+  const teamAverages = groupScoresByTeam(
+    scoreResults.map((r) => ({ teamName: r.person?.team?.name ?? null, finalScore: r.finalScore })),
+  );
 
   const averageScore =
     scoreResults.length > 0
@@ -78,21 +87,36 @@ export default async function DashboardPage() {
         ))}
       </div>
 
-      <div className="card chart-card">
-        <h2 className="chart-card__title">전사 스코어 분포</h2>
-        {scoreResults.length === 0 ? (
-          <p className="empty-state">
-            이번 달 계산된 스코어가 아직 없습니다. 데이터가 쌓이면 여기에 분포가 표시됩니다.
-          </p>
-        ) : (
-          <Histogram scores={scoreResults.map((r) => r.finalScore)} />
-        )}
+      <div className="chart-grid">
+        <div className="card chart-card">
+          <h2 className="chart-card__title">팀별 성과 비교</h2>
+          {scoreResults.length === 0 ? (
+            <p className="empty-state">
+              이번 달 계산된 스코어가 아직 없습니다. 데이터가 쌓이면 여기에 비교가 표시됩니다.
+            </p>
+          ) : (
+            <HorizontalBarChart
+              items={teamAverages.map((t) => ({ label: t.teamName, value: t.avgScore }))}
+            />
+          )}
+        </div>
+        <div className="card chart-card">
+          <h2 className="chart-card__title">전사 스코어 분포</h2>
+          {scoreResults.length === 0 ? (
+            <p className="empty-state">
+              이번 달 계산된 스코어가 아직 없습니다. 데이터가 쌓이면 여기에 분포가 표시됩니다.
+            </p>
+          ) : (
+            <Histogram scores={scoreResults.map((r) => r.finalScore)} />
+          )}
+        </div>
       </div>
 
       <p className="hint">
         지금 실제로 동작하는 화면은 <a href="/identities">아이덴티티 매핑 큐(S-07)</a>,{" "}
         <a href="/scorecard">개인 스코어카드(S-02)</a>,{" "}
-        <a href="/settings/weights">축 가중치 설정</a> 셋입니다. 자세한 내용은{" "}
+        <a href="/settings/weights">축 가중치 설정</a>,{" "}
+        <a href="/settings/teams">팀 설정</a> 넷입니다. 자세한 내용은{" "}
         <code>docs/ARCHITECTURE.md</code>를 참고하세요.
       </p>
     </main>

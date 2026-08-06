@@ -87,4 +87,30 @@ describe("/ dashboard page", () => {
     expect(html).toContain("전사 스코어 분포");
     expect(html).toContain("이번 달 계산된 스코어가 아직 없습니다");
   });
+
+  it("renders a per-team score comparison, bucketing people with no team under 미배정", async () => {
+    mockPrisma.scoreResult.findMany.mockResolvedValue([
+      { finalScore: 80, grade: "A", person: { team: { name: "정산팀" } } },
+      { finalScore: 84, grade: "A", person: { team: { name: "정산팀" } } },
+      { finalScore: 60, grade: "C", person: { team: null } },
+    ]);
+    mockPrisma.identity.count.mockResolvedValue(0);
+    mockPrisma.commit.count.mockResolvedValue(0);
+
+    const html = renderToStaticMarkup(await DashboardPage());
+
+    expect(html).toContain("팀별 성과 비교");
+    expect(html).toContain("정산팀");
+    expect(html).toContain("미배정");
+  });
+
+  it("shows the team chart's empty state when nobody has a ScoreResult yet", async () => {
+    mockPrisma.scoreResult.findMany.mockResolvedValue([]);
+    mockPrisma.identity.count.mockResolvedValue(0);
+    mockPrisma.commit.count.mockResolvedValue(0);
+
+    const html = renderToStaticMarkup(await DashboardPage());
+
+    expect(html).toContain("팀별 성과 비교");
+  });
 });
