@@ -5,6 +5,7 @@ export {
   UNIMPLEMENTED_AXIS_PLACEHOLDER,
 } from "./computeAxisMetrics";
 export { currentMonthPeriod } from "./currentMonthPeriod";
+export { listMonthsInRange } from "./listMonthsInRange";
 export type {
   AuthorWeeklyStats,
   WeeklyActivity,

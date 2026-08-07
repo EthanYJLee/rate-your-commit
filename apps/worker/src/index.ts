@@ -25,9 +25,14 @@
  *   5. Once every configured project has synced (each project's
  *      failure is caught and logged independently — one bad project
  *      doesn't block the rest): S-02 recomputes a ScoreResult for
- *      every Person with any tracked activity, for the current
- *      calendar month. Idempotent upsert, so re-running mid-month
- *      just refreshes the same snapshot (see ScoreResult's schema
+ *      every Person with any tracked activity, for EVERY calendar
+ *      month from the earliest commit/ticket activity in the whole
+ *      DB through the current month (computeAndPersistScoresForAllPeriods)
+ *      — not just the current month, so history that predates this
+ *      worker ever running (e.g. commits synced from an existing repo)
+ *      still gets a ScoreResult and shows up in the web app's period
+ *      picker. Idempotent upsert per period, so re-running mid-month
+ *      just refreshes the same snapshots (see ScoreResult's schema
  *      comment).
  */
 import {
@@ -39,8 +44,13 @@ import {
   LinearConnector,
 } from "@rateyourcommit/connectors";
 import type { RawCommit, RawIdentity, RawTicket } from "@rateyourcommit/connectors";
-import { computeAxisMetrics, currentMonthPeriod, detectOutlierWeeks } from "@rateyourcommit/metrics";
-import type { OutlierWeek } from "@rateyourcommit/metrics";
+import {
+  computeAxisMetrics,
+  currentMonthPeriod,
+  detectOutlierWeeks,
+  listMonthsInRange,
+} from "@rateyourcommit/metrics";
+import type { OutlierWeek, PeriodRange } from "@rateyourcommit/metrics";
 import { assignGrade, calculateScore } from "@rateyourcommit/scoring";
 import type { AxisWeights } from "@rateyourcommit/scoring";
 import { DEFAULT_ORGANIZATION_ID, prisma } from "@rateyourcommit/db";
@@ -231,16 +241,18 @@ async function getOrCreateWeightConfig(): Promise<AxisWeights> {
 }
 
 /**
- * Recomputes and upserts this month's ScoreResult for every Person
- * with any tracked activity (skips people with zero commits/tickets
- * ever — nothing to score yet, not "scored 100/S by default").
- * Aggregates across ALL of a person's linked Identities, since one
- * person can have more than one (see persistTickets' doc comment).
+ * Recomputes and upserts `period`'s ScoreResult for every Person with
+ * any tracked activity (skips people with zero commits/tickets ever —
+ * nothing to score yet, not "scored 100/S by default"). Aggregates
+ * across ALL of a person's linked Identities, since one person can
+ * have more than one (see persistTickets' doc comment). Takes the
+ * period explicitly rather than defaulting to "now" — see
+ * computeAndPersistScoresForAllPeriods below, which decides which
+ * periods actually need computing and calls this once per period.
  * Exported for unit testing.
  */
-export async function computeAndPersistScores(): Promise<number> {
+export async function computeAndPersistScores(period: PeriodRange): Promise<number> {
   const weights = await getOrCreateWeightConfig();
-  const period = currentMonthPeriod();
 
   const people = await prisma.person.findMany({
     include: { identities: { include: { commits: true, tickets: true } } },
@@ -284,6 +296,52 @@ export async function computeAndPersistScores(): Promise<number> {
   }
 
   return scoredCount;
+}
+
+/**
+ * Decides WHICH periods need a ScoreResult and computes all of them —
+ * every calendar month from the earliest commit/ticket activity ever
+ * synced through the current month, not just "now". Without this,
+ * activity that predates this worker's own uptime (e.g. a repo's full
+ * commit history synced on day one, like GitHubConnector.fetchCommits'
+ * `new Date(0)` full-history fetch already does) could never get a
+ * ScoreResult at all: computeAndPersistScores only ever computed
+ * "this month" every tick, so a person whose only activity was in the
+ * past would silently never show up in the web app's period picker
+ * (apps/web/lib/available-periods.ts only lists periods that already
+ * have a ScoreResult row).
+ *
+ * Re-derives the full backfill range from scratch every sync tick
+ * (idempotent upserts make re-running any period cheap and safe) —
+ * simpler than persisting "already backfilled" state, and correct as
+ * long as this project's history stays small enough that re-scanning
+ * it every 15 minutes isn't a real cost. Revisit if that stops being
+ * true.
+ */
+export async function computeAndPersistScoresForAllPeriods(): Promise<number> {
+  const [earliestCommit, earliestTicket] = await Promise.all([
+    prisma.commit.aggregate({ _min: { authoredAt: true } }),
+    prisma.ticket.aggregate({ _min: { createdAt: true } }),
+  ]);
+
+  const candidates = [earliestCommit._min.authoredAt, earliestTicket._min.createdAt].filter(
+    (date): date is Date => date instanceof Date
+  );
+
+  // No activity synced anywhere yet — same as today's behavior,
+  // compute just the current month rather than an empty backfill.
+  const earliest =
+    candidates.length > 0
+      ? new Date(Math.min(...candidates.map((date) => date.getTime())))
+      : currentMonthPeriod().start;
+
+  const periods = listMonthsInRange(earliest, new Date());
+
+  let totalScored = 0;
+  for (const period of periods) {
+    totalScored += await computeAndPersistScores(period);
+  }
+  return totalScored;
 }
 
 /** Project.externalRef for a given config — paired with `connector`,
@@ -434,8 +492,8 @@ async function runSync(): Promise<void> {
     }
   }
 
-  const scoredCount = await computeAndPersistScores();
-  console.log(`[worker] ${scoredCount} people scored for the current period`);
+  const scoredCount = await computeAndPersistScoresForAllPeriods();
+  console.log(`[worker] ${scoredCount} person-periods scored (backfilling all history)`);
 }
 
 async function main(): Promise<void> {

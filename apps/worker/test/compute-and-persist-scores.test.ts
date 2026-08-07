@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { currentMonthPeriod } from "@rateyourcommit/metrics";
 
 const mockPrisma = {
   scoreWeightConfig: { findFirst: vi.fn(), create: vi.fn() },
@@ -11,6 +12,7 @@ vi.mock("@rateyourcommit/db", () => ({ prisma: mockPrisma, DEFAULT_ORGANIZATION_
 const { computeAndPersistScores } = await import("../src/index");
 
 const DEFAULT_WEIGHTS = { delivery: 50, quality: 50, collaboration: 0, evaluation: 0 };
+const period = currentMonthPeriod();
 
 describe("computeAndPersistScores", () => {
   beforeEach(() => {
@@ -24,7 +26,7 @@ describe("computeAndPersistScores", () => {
     mockPrisma.scoreWeightConfig.create.mockResolvedValue(DEFAULT_WEIGHTS);
     mockPrisma.person.findMany.mockResolvedValue([]);
 
-    await computeAndPersistScores();
+    await computeAndPersistScores(period);
 
     expect(mockPrisma.scoreWeightConfig.create).toHaveBeenCalledWith({
       data: {
@@ -42,15 +44,14 @@ describe("computeAndPersistScores", () => {
       { id: "person-1", identities: [{ commits: [], tickets: [] }] },
     ]);
 
-    const count = await computeAndPersistScores();
+    const count = await computeAndPersistScores(period);
 
     expect(count).toBe(0);
     expect(mockPrisma.scoreResult.upsert).not.toHaveBeenCalled();
   });
 
   it("aggregates commits/tickets across all of a person's identities and upserts a ScoreResult", async () => {
-    const now = new Date();
-    const inPeriod = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 10));
+    const inPeriod = new Date(Date.UTC(period.start.getUTCFullYear(), period.start.getUTCMonth(), 10));
 
     mockPrisma.person.findMany.mockResolvedValue([
       {
@@ -62,7 +63,7 @@ describe("computeAndPersistScores", () => {
       },
     ]);
 
-    const count = await computeAndPersistScores();
+    const count = await computeAndPersistScores(period);
 
     expect(count).toBe(1);
     expect(mockPrisma.scoreResult.upsert).toHaveBeenCalledTimes(1);
@@ -74,9 +75,26 @@ describe("computeAndPersistScores", () => {
     expect(call.create.grade).toBe("S");
   });
 
+  it("upserts using the given period's start/end, not necessarily the current month", async () => {
+    const pastPeriod = { start: new Date("2023-05-01T00:00:00Z"), end: new Date("2023-06-01T00:00:00Z") };
+    const inPastPeriod = new Date("2023-05-10T00:00:00Z");
+
+    mockPrisma.person.findMany.mockResolvedValue([
+      {
+        id: "person-1",
+        identities: [{ commits: [{ authoredAt: inPastPeriod, excludedFlag: false }], tickets: [] }],
+      },
+    ]);
+
+    await computeAndPersistScores(pastPeriod);
+
+    const call = mockPrisma.scoreResult.upsert.mock.calls[0][0];
+    expect(call.create.periodStart).toEqual(pastPeriod.start);
+    expect(call.create.periodEnd).toEqual(pastPeriod.end);
+  });
+
   it("counts a currently-open ticket (closedAt: null, Prisma's actual shape for a nullable column — not undefined) as active, not as 0% delivery via NO_ACTIVITY_DEFAULT", async () => {
-    const now = new Date();
-    const inPeriod = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 10));
+    const inPeriod = new Date(Date.UTC(period.start.getUTCFullYear(), period.start.getUTCMonth(), 10));
 
     mockPrisma.person.findMany.mockResolvedValue([
       {
@@ -87,7 +105,7 @@ describe("computeAndPersistScores", () => {
       },
     ]);
 
-    const count = await computeAndPersistScores();
+    const count = await computeAndPersistScores(period);
 
     expect(count).toBe(1);
     const call = mockPrisma.scoreResult.upsert.mock.calls[0][0];
