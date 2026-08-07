@@ -2,79 +2,81 @@
 
 # RateYourCommit
 
-**개발팀의 기여를 투명하게, 설명 가능하게 — 오픈소스 개발자 성과 가시화 도구**
+**Make developer contribution visible — and explainable. An open-source performance-visibility tool for dev teams.**
 
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPLv3-blue.svg)](#license)
-[![Self-hosted](https://img.shields.io/badge/deploy-docker%20compose-2496ED.svg)](#5분-안에-시작하기)
-[![Version](https://img.shields.io/badge/version-0.0.1-lightgrey.svg)](#로드맵)
+[![Self-hosted](https://img.shields.io/badge/deploy-docker%20compose-2496ED.svg)](#get-started-in-5-minutes)
+[![Version](https://img.shields.io/badge/version-0.0.1-lightgrey.svg)](#roadmap)
 
-[문제의식](#이런-고민-있으신가요) · [기능](#핵심-기능) · [시작하기](#5분-안에-시작하기) · [AI 사용 원칙](#ai를-어디에-쓰고-어디에-안-쓰는가) · [로드맵](#로드맵)
+<b>English</b> · <a href="README.ko.md">한국어</a> · <a href="README.ja.md">日本語</a> · <a href="README.zh.md">中文</a> · <a href="README.es.md">Español</a>
+
+[Why](#does-this-sound-familiar) · [Features](#key-features) · [Get Started](#get-started-in-5-minutes) · [AI Policy](#where-we-use-ai-and-where-we-dont) · [Roadmap](#roadmap)
 
 </div>
 
 ---
 
-## 이런 고민 있으신가요?
+## Does this sound familiar?
 
-소~중규모 개발조직을 운영하다 보면 이런 순간이 옵니다.
+If you run a small-to-medium dev org, you've probably hit moments like these.
 
-- "OO님 성과가 좋다는 건 아는데, 막상 근거를 대라면 뭐라고 설명해야 할지 모르겠다."
-- "GitHub/GitLab 계정이 사람마다 여러 개라 누가 뭘 했는지 집계가 안 맞는다."
-- "평가 시즌마다 감(感)으로 등급을 매기고, 나중에 이의제기가 들어오면 답할 말이 없다."
-- "성과관리 SaaS를 써볼까 했는데, 우리 코드/인사 데이터를 외부 서버에 올리는 게 꺼려진다."
+- "I know so-and-so is doing great work, but if someone pushed back, I couldn't actually point to why."
+- "People have multiple GitHub/GitLab accounts, so nothing adds up when we try to tally who did what."
+- "Every review cycle we grade people on gut feel, and if someone disputes it, we have nothing concrete to say."
+- "We looked at performance-management SaaS, but shipping our code/HR data to someone else's servers makes us uneasy."
 
-RateYourCommit은 이 문제를 **셀프호스팅 오픈소스**로 풀기 위한 프로젝트입니다.
+RateYourCommit exists to solve this as **self-hosted, open-source** software.
 
-## 핵심 기능
+## Key Features
 
-- **🔗 아이덴티티 자동 매칭** — 한 사람이 여러 git 계정/이메일로 커밋해도 자동으로 후보를 찾아 한 사람으로 합쳐줍니다. (규칙 기반, 확정은 항상 사람이 클릭)
-- **📊 설명 가능한 스코어카드** — 딜리버리·코드품질·협업 지표를 조직이 정한 가중치로 계산합니다. 계산식은 전부 공개되어 있고, 엑셀로도 검산 가능합니다.
-- **🧹 이상치 자동 제외** — "라이브러리 통째로 커밋" 같은 건은 자동 감지해 점수 계산에서 제외합니다.
-- **🔌 커넥터 구조** — GitHub, GitLab, Jira, Linear 등 이미 쓰고 있는 도구를 그대로 연결합니다. 새 도구 연동은 플러그인 하나 추가하면 됩니다.
-- **🔒 완전 셀프호스팅** — 코드도, 평가 데이터도 회사 서버 밖으로 나가지 않습니다.
+- **🔗 Automatic identity matching** — Even if one person commits under several git accounts/emails, RateYourCommit finds the candidates and merges them into a single identity. (Rule-based matching; a human always clicks to confirm.)
+- **📊 Explainable scorecards** — Delivery, code quality, and collaboration metrics are computed using weights your organization sets. Every formula is fully disclosed and can be hand-checked in a spreadsheet.
+- **🧹 Automatic outlier exclusion** — Things like "committed an entire vendored library" are auto-detected and excluded from scoring.
+- **🔌 Connector architecture** — Plug in the tools you already use: GitHub, GitLab, Jira, Linear, and more. Adding a new integration is just one more plugin.
+- **🔒 Fully self-hosted** — Neither your code nor your evaluation data ever leaves your own servers.
 
-## AI를 어디에 쓰고, 어디에 안 쓰는가
+## Where We Use AI (and Where We Don't)
 
-이 프로젝트의 가장 중요한 원칙입니다.
+This is the single most important principle in this project.
 
-> **보상·등급에 직접 영향을 주는 계산에는 AI를 쓰지 않습니다.** 전부 사람이 손으로 검산 가능한 규칙과 통계입니다.
+> **We never use AI for any calculation that directly affects compensation or grading.** Everything is rules and statistics a human can verify by hand.
 
-AI(LLM)는 딱 두 곳, 최종 점수와 무관한 **참고용 보조 기능**에만 선택적으로 사용됩니다 (커밋 메시지 요약, 동료평가 코멘트 요약). 이마저도 사내 로컬 LLM과 외부 API 중 선택할 수 있게 만들 예정입니다. 자세한 내용은 [`docs/AI-POLICY.md`](docs/AI-POLICY.md) 참고.
+AI (an LLM) is used, optionally, in exactly two places — both purely reference-only helpers that never touch the final score (summarizing commit messages, summarizing peer-review comments). Even these are planned to support a choice between a local, in-house LLM and an external API. See [`docs/AI-POLICY.md`](docs/AI-POLICY.md) for details.
 
-## 5분 안에 시작하기
+## Get Started in 5 Minutes
 
 ```bash
 git clone https://github.com/<your-username>/rate-your-commit
 cd rate-your-commit
-cp .env.example .env       # GitHub 토큰 등 최소 설정
-docker compose up -d       # web + worker + postgres 한 번에 기동
+cp .env.example .env       # minimal setup: GitHub token, etc.
+docker compose up -d       # spins up web + worker + postgres together
 ```
 
-브라우저에서 `http://localhost:3000` 접속 → 저장소 연결 → 몇 분 뒤 첫 대시보드 확인. 서버 담당자가 없어도 사내 개발자 한 명이면 충분합니다. 자세한 구조는 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) 참고.
+Open `http://localhost:3000` → connect a repo → check your first dashboard a few minutes later. You don't need a dedicated ops person — one developer on your team is enough. See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the full architecture.
 
-## 스크린샷
+## Screenshots
 
-> _(공개 저장소 준비 중 — 실제 대시보드 스크린샷은 첫 릴리스와 함께 추가 예정)_
+> _(Public repo in progress — real dashboard screenshots will be added with the first release.)_
 
-## 로드맵
+## Roadmap
 
-- [x] **0.0.1** — 화면 설계, 아키텍처 설계, 라이선스/거버넌스, README, 초기 저장소 스캐폴딩 (현재 버전)
-- [ ] v1.0 — 아이덴티티 매핑 + Git/이슈 연동 + 개인 스코어카드 (GitHub 커넥터)
-- [ ] v1.1 — GitLab / Jira / Linear 커넥터 추가
-- [ ] v2.0 — 동료평가(360도) 모듈
-- [ ] v2.1 — 보상등급 산정 리포트 모듈 (조직별 커스텀 규칙)
-- [ ] RateYourCommit Cloud — 매니지드 호스팅 + LLM 보조기능 (유료)
+- [x] **0.0.1** — Screen design, architecture design, license/governance, README, initial repo scaffolding (current version)
+- [ ] v1.0 — Identity mapping + Git/issue-tracker integration + personal scorecard (GitHub connector)
+- [ ] v1.1 — GitLab / Jira / Linear connectors
+- [ ] v2.0 — Peer evaluation (360°) module
+- [ ] v2.1 — Compensation-grade report module (org-specific custom rules)
+- [ ] RateYourCommit Cloud — managed hosting + LLM-assisted features (paid)
 
-## 기여하기
+## Contributing
 
-이제 막 초기 스캐폴딩이 끝난 단계입니다. 이슈로 의견을 남겨주시거나, `CONTRIBUTING.md`를 따라 참여해주세요. **채점 로직(`packages/scoring`) 관련 PR은 반드시 코드오너 1인 이상의 승인**을 받도록 운영합니다 — 이 프로젝트의 신뢰는 "계산이 투명하다"는 약속에서 나오기 때문입니다.
+We've just finished the initial scaffolding. Please leave your thoughts as an issue, or follow `CONTRIBUTING.md` to get involved. **PRs touching the scoring logic (`packages/scoring`) always require approval from at least one code owner** — this project's trust comes from the promise that "the calculation is transparent."
 
 ## License
 
-[GNU AGPL v3.0](LICENSE). 셀프호스팅·수정·재배포는 자유롭지만, 이 코드를 네트워크 서비스로 운영해 제공할 경우 수정한 소스코드도 함께 공개해야 합니다. 오픈소스 코어를 영구히 무료로 유지하기 위한 선택입니다.
+[GNU AGPL v3.0](LICENSE). You're free to self-host, modify, and redistribute, but if you operate this code as a network service, you must also publish your modified source. This choice keeps the open-source core permanently free.
 
 ---
 
 <div align="center">
-<sub>이 프로젝트가 도움이 될 것 같다면 ⭐를 눌러주세요 — 얼마나 많은 팀이 필요로 하는지가 다음 단계 투자 판단의 근거가 됩니다.</sub>
+<sub>If this project looks useful to you, please star it — how many teams need this is exactly what informs our next round of investment.</sub>
 </div>
