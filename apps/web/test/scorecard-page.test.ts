@@ -4,9 +4,16 @@ import { renderToStaticMarkup } from "react-dom/server";
 const mockPrisma = {
   scoreResult: { findMany: vi.fn() },
   identity: { count: vi.fn() },
+  scoreConfirmation: { findUnique: vi.fn() },
 };
 
+const mockAuth = vi.fn().mockResolvedValue(null);
+
 vi.mock("@rateyourcommit/db", () => ({ prisma: mockPrisma }));
+// Mocked for the same reason every other page/route test mocks
+// "../auth": an unmocked `import ... from "next-auth"` fails to
+// resolve "next/server" under Vitest.
+vi.mock("../auth", () => ({ auth: mockAuth }));
 
 // Imported after the mock so the page module picks up the mocked client.
 const { default: ScorecardPage } = await import("../app/scorecard/page");
@@ -154,5 +161,66 @@ describe("/scorecard page", () => {
     // to silently drop the period and land on /scorecard/[personId]
     // showing the CURRENT month instead of the one being viewed.
     expect(html).toContain('href="/scorecard/person-1?period=2023-03"');
+  });
+
+  it("shows a '확정됨' badge with actor/date when this period is already confirmed", async () => {
+    mockPrisma.scoreResult.findMany.mockResolvedValue([]);
+    mockPrisma.identity.count.mockResolvedValue(0);
+    mockPrisma.scoreConfirmation.findUnique.mockResolvedValue({
+      confirmedByLogin: "octocat",
+      confirmedAt: new Date("2026-08-07T12:34:00Z"),
+    });
+
+    const html = renderToStaticMarkup(await ScorecardPage({ searchParams: Promise.resolve({}) }));
+
+    expect(html).toContain("확정됨");
+    expect(html).toContain("octocat");
+  });
+
+  it("shows an admin-only confirm button when the period isn't confirmed yet and there are no unresolved identities", async () => {
+    mockPrisma.scoreResult.findMany.mockResolvedValue([]);
+    mockPrisma.identity.count.mockResolvedValue(0);
+    mockPrisma.scoreConfirmation.findUnique.mockResolvedValue(null);
+    mockAuth.mockResolvedValueOnce({ user: { role: "admin" } });
+
+    const html = renderToStaticMarkup(await ScorecardPage({ searchParams: Promise.resolve({}) }));
+
+    expect(html).toContain('action="/api/scorecard/confirm"');
+    expect(html).not.toContain("disabled");
+  });
+
+  it("disables the confirm button when unresolved identities exist", async () => {
+    mockPrisma.scoreResult.findMany.mockResolvedValue([]);
+    mockPrisma.identity.count.mockResolvedValue(2);
+    mockPrisma.scoreConfirmation.findUnique.mockResolvedValue(null);
+    mockAuth.mockResolvedValueOnce({ user: { role: "admin" } });
+
+    const html = renderToStaticMarkup(await ScorecardPage({ searchParams: Promise.resolve({}) }));
+
+    expect(html).toContain('action="/api/scorecard/confirm"');
+    expect(html).toContain("disabled");
+  });
+
+  it("does not show the confirm button for a non-admin session", async () => {
+    mockPrisma.scoreResult.findMany.mockResolvedValue([]);
+    mockPrisma.identity.count.mockResolvedValue(0);
+    mockPrisma.scoreConfirmation.findUnique.mockResolvedValue(null);
+    mockAuth.mockResolvedValueOnce({ user: { role: "member" } });
+
+    const html = renderToStaticMarkup(await ScorecardPage({ searchParams: Promise.resolve({}) }));
+
+    expect(html).not.toContain('action="/api/scorecard/confirm"');
+  });
+
+  it("renders the error message from the query param, when present (e.g. a blocked confirm attempt)", async () => {
+    mockPrisma.scoreResult.findMany.mockResolvedValue([]);
+    mockPrisma.identity.count.mockResolvedValue(0);
+    mockPrisma.scoreConfirmation.findUnique.mockResolvedValue(null);
+
+    const html = renderToStaticMarkup(
+      await ScorecardPage({ searchParams: Promise.resolve({ error: "이미 확정된 기간입니다." }) })
+    );
+
+    expect(html).toContain("이미 확정된 기간입니다.");
   });
 });

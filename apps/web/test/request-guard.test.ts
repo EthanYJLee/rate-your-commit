@@ -17,6 +17,7 @@ describe("isAdminOnlyPath", () => {
     expect(isAdminOnlyPath("/api/settings/teams")).toBe(true);
     expect(isAdminOnlyPath("/api/settings/teams/bulk-assign")).toBe(true);
     expect(isAdminOnlyPath("/api/people/id-1/team")).toBe(true);
+    expect(isAdminOnlyPath("/api/scorecard/confirm")).toBe(true);
   });
 
   it("leaves the dashboard and scorecard open to anyone signed in", () => {

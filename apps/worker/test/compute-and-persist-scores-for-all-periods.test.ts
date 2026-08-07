@@ -7,6 +7,7 @@ const mockPrisma = {
   scoreResult: { upsert: vi.fn() },
   commit: { aggregate: vi.fn() },
   ticket: { aggregate: vi.fn() },
+  scoreConfirmation: { findMany: vi.fn() },
 };
 
 vi.mock("@rateyourcommit/db", () => ({ prisma: mockPrisma, DEFAULT_ORGANIZATION_ID: "default" }));
@@ -21,6 +22,7 @@ describe("computeAndPersistScoresForAllPeriods", () => {
     mockPrisma.scoreWeightConfig.findFirst.mockResolvedValue(DEFAULT_WEIGHTS);
     mockPrisma.scoreResult.upsert.mockResolvedValue({});
     mockPrisma.person.findMany.mockResolvedValue([]);
+    mockPrisma.scoreConfirmation.findMany.mockResolvedValue([]);
   });
 
   it("computes only the current month when there is no commit/ticket activity anywhere yet", async () => {
@@ -86,5 +88,25 @@ describe("computeAndPersistScoresForAllPeriods", () => {
     const totalScored = await computeAndPersistScoresForAllPeriods();
 
     expect(totalScored).toBe(1);
+  });
+
+  it("skips a period that already has a ScoreConfirmation row, without touching person.findMany for it", async () => {
+    mockPrisma.commit.aggregate.mockResolvedValue({
+      _min: { authoredAt: new Date("2026-06-01T00:00:00Z") },
+    });
+    mockPrisma.ticket.aggregate.mockResolvedValue({ _min: { createdAt: null } });
+    // Confirm the earliest month (2026-06) — everything else in the
+    // backfill range is still open.
+    mockPrisma.scoreConfirmation.findMany.mockResolvedValue([
+      { periodStart: new Date(Date.UTC(2026, 5, 1)) },
+    ]);
+
+    const now = new Date();
+    const totalMonthsInRange = (now.getUTCFullYear() - 2026) * 12 + (now.getUTCMonth() - 5) + 1;
+
+    await computeAndPersistScoresForAllPeriods();
+
+    // One fewer than the full range, since June is confirmed and skipped.
+    expect(mockPrisma.person.findMany).toHaveBeenCalledTimes(totalMonthsInRange - 1);
   });
 });

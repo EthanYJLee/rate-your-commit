@@ -15,6 +15,12 @@
  * /settings/teams page's per-person assignment) — there is no other
  * /api/people/* route, so gating the whole prefix is correct as of
  * this writing; revisit if that ever changes.
+ *
+ * /api/scorecard covers only /api/scorecard/confirm (S-06's "확정"
+ * action) — the /scorecard PAGE itself stays open to any signed-in
+ * user (it queries Prisma directly server-side, no GET API route), so
+ * only the /api/scorecard/* mutation prefix is admin-only, not
+ * /scorecard itself.
  */
 const ADMIN_ONLY_PREFIXES = [
   "/identities",
@@ -22,6 +28,7 @@ const ADMIN_ONLY_PREFIXES = [
   "/api/identities",
   "/api/settings",
   "/api/people",
+  "/api/scorecard",
 ];
 
 export function isAdminOnlyPath(pathname: string): boolean {

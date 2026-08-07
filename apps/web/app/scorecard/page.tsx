@@ -1,7 +1,12 @@
 import { prisma } from "@rateyourcommit/db";
+import { auth } from "../../auth";
 import { PeriodPicker } from "../../components/PeriodPicker";
 import { listAvailablePeriods } from "../../lib/available-periods";
 import { parsePeriodParam, periodLabel, periodParam } from "../../lib/period-param";
+
+function formatConfirmedAt(date: Date): string {
+  return date.toISOString().slice(0, 16).replace("T", " ");
+}
 
 export const dynamic = "force-dynamic";
 
@@ -31,20 +36,26 @@ function formatTicketCount(ticketCount: number, closedTicketCount: number): stri
 export default async function ScorecardPage({
   searchParams,
 }: {
-  searchParams: Promise<{ period?: string }>;
+  searchParams: Promise<{ period?: string; error?: string }>;
 }) {
-  const { period: periodParamValue } = await searchParams;
+  const { period: periodParamValue, error } = await searchParams;
   const period = parsePeriodParam(periodParamValue);
 
-  const [results, pendingIdentityCount, availablePeriods] = await Promise.all([
-    prisma.scoreResult.findMany({
-      where: { periodStart: period.start, periodEnd: period.end },
-      include: { person: true },
-      orderBy: { finalScore: "desc" },
-    }),
-    prisma.identity.count({ where: { personId: null } }),
-    listAvailablePeriods(),
-  ]);
+  const [results, pendingIdentityCount, availablePeriods, confirmation, session] =
+    await Promise.all([
+      prisma.scoreResult.findMany({
+        where: { periodStart: period.start, periodEnd: period.end },
+        include: { person: true },
+        orderBy: { finalScore: "desc" },
+      }),
+      prisma.identity.count({ where: { personId: null } }),
+      listAvailablePeriods(),
+      prisma.scoreConfirmation.findUnique({
+        where: { periodStart_periodEnd: { periodStart: period.start, periodEnd: period.end } },
+      }),
+      auth(),
+    ]);
+  const isAdmin = session?.user?.role === "admin";
 
   return (
     <main className="page">
@@ -55,6 +66,41 @@ export default async function ScorecardPage({
       </p>
 
       <PeriodPicker action="/scorecard" selected={period} availablePeriods={availablePeriods} />
+
+      {error && <p className="error-banner">{error}</p>}
+
+      {confirmation ? (
+        <p className="hint" style={{ marginBottom: "1rem" }}>
+          <span className="badge badge--neutral">확정됨</span>{" "}
+          {confirmation.confirmedByLogin} · {formatConfirmedAt(confirmation.confirmedAt)}
+        </p>
+      ) : (
+        isAdmin && (
+          <form
+            action="/api/scorecard/confirm"
+            method="POST"
+            className="field-row"
+            style={{ marginBottom: "1rem" }}
+          >
+            <input type="hidden" name="period" value={periodParam(period)} />
+            <button
+              type="submit"
+              className="button button--small"
+              disabled={pendingIdentityCount > 0}
+              title={
+                pendingIdentityCount > 0
+                  ? "미해결 아이덴티티가 있어 확정할 수 없습니다"
+                  : undefined
+              }
+            >
+              {periodLabel(period)} 확정
+            </button>
+            {pendingIdentityCount > 0 && (
+              <span className="hint">미해결 아이덴티티 {pendingIdentityCount}개로 인해 확정 불가</span>
+            )}
+          </form>
+        )
+      )}
 
       {pendingIdentityCount > 0 && (
         <p className="warning-banner">

@@ -331,11 +331,18 @@ export async function computeAndPersistScores(period: PeriodRange): Promise<numb
  * long as this project's history stays small enough that re-scanning
  * it every 15 minutes isn't a real cost. Revisit if that stops being
  * true.
+ *
+ * Skips any period with a ScoreConfirmation row (S-06's "확정" step —
+ * see that model's schema doc comment): once a period's compensation
+ * grades are confirmed, they're a frozen snapshot, not something a
+ * later sync tick should silently recompute out from under an admin
+ * who already signed off on it.
  */
 export async function computeAndPersistScoresForAllPeriods(): Promise<number> {
-  const [earliestCommit, earliestTicket] = await Promise.all([
+  const [earliestCommit, earliestTicket, confirmedPeriods] = await Promise.all([
     prisma.commit.aggregate({ _min: { authoredAt: true } }),
     prisma.ticket.aggregate({ _min: { createdAt: true } }),
+    prisma.scoreConfirmation.findMany({ select: { periodStart: true } }),
   ]);
 
   const candidates = [earliestCommit._min.authoredAt, earliestTicket._min.createdAt].filter(
@@ -349,7 +356,10 @@ export async function computeAndPersistScoresForAllPeriods(): Promise<number> {
       ? new Date(Math.min(...candidates.map((date) => date.getTime())))
       : currentMonthPeriod().start;
 
-  const periods = listMonthsInRange(earliest, new Date());
+  const confirmedStarts = new Set(confirmedPeriods.map((row) => row.periodStart.getTime()));
+  const periods = listMonthsInRange(earliest, new Date()).filter(
+    (period) => !confirmedStarts.has(period.start.getTime())
+  );
 
   let totalScored = 0;
   for (const period of periods) {

@@ -187,6 +187,33 @@ model ScoreResult {
   @@unique([personId, periodStart, periodEnd])
 }
 
+/// Marks a period's ScoreResult rows as finalized for compensation
+/// purposes (S-06 화면설계서's "확정" step). Existence of a row for a
+/// given (periodStart, periodEnd) means:
+///   1. apps/worker no longer recomputes/overwrites that period's
+///      ScoreResult rows (a compensation decision can't be based on
+///      data that silently changes later) — see
+///      computeAndPersistScoresForAllPeriods's doc comment.
+///   2. /scorecard shows a "확정됨" badge with who/when for that period.
+/// Admin-only action, and blocked entirely while ANY Identity is
+/// unresolved (personId null) anywhere in the org — matches the
+/// original spec's "아이덴티티 미해결 시 전체 확정 차단" rule exactly
+/// (a global check, not scoped to just people active in this period).
+/// No unconfirm action yet — deliberately, so "확정" means something;
+/// add one later if a real correction workflow is needed.
+model ScoreConfirmation {
+  id            String   @id @default(cuid())
+  periodStart   DateTime
+  periodEnd     DateTime
+  /// The signed-in admin's GitHub login or email — same actor-identity
+  /// convention as IdentityAuditLog.actorLogin (no Person FK; sessions
+  /// aren't linked to a Person for GitHub sign-ins).
+  confirmedByLogin String
+  confirmedAt   DateTime @default(now())
+
+  @@unique([periodStart, periodEnd])
+}
+
 /// An email/password sign-in credential — additive to GitHub OAuth,
 /// not a replacement (see auth.ts). NOT an Auth.js Adapter "User":
 /// this app still uses JWT sessions with no Adapter, so there's
