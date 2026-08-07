@@ -26,6 +26,14 @@ export interface PeriodRange {
   end: Date;
 }
 
+/** computeRawActivity's return shape — see its own doc comment. */
+export interface RawActivity {
+  commitCount: number;
+  excludedCommitCount: number;
+  ticketCount: number;
+  closedTicketCount: number;
+}
+
 export interface WeeklyActivity {
   weekStart: Date;
   additions: number;

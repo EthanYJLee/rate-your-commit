@@ -1,0 +1,5 @@
+-- AlterTable
+ALTER TABLE "ScoreResult" ADD COLUMN     "closedTicketCount" INTEGER NOT NULL DEFAULT 0,
+ADD COLUMN     "commitCount" INTEGER NOT NULL DEFAULT 0,
+ADD COLUMN     "excludedCommitCount" INTEGER NOT NULL DEFAULT 0,
+ADD COLUMN     "ticketCount" INTEGER NOT NULL DEFAULT 0;

@@ -167,6 +167,21 @@ model ScoreResult {
   evaluation   Float
   finalScore   Float
   grade        String
+  /// Raw, unweighted activity counts for this period — reference-only
+  /// context shown alongside the scored axes (e.g. on /scorecard),
+  /// never fed into finalScore. See packages/metrics#computeRawActivity.
+  /// Defaults to 0 so pre-existing rows degrade to "no data shown" until
+  /// the next worker run recomputes them, same as every other
+  /// backfill-by-upsert in this table.
+  commitCount         Int @default(0)
+  /// Of commitCount, how many were flagged excluded (S-04 LOC outlier).
+  excludedCommitCount Int @default(0)
+  /// Tickets "active" in this period — same definition computeDelivery
+  /// uses (already existed before this period ended, not closed before
+  /// it started).
+  ticketCount         Int @default(0)
+  /// Of ticketCount, how many were closed within this period.
+  closedTicketCount   Int @default(0)
   calculatedAt DateTime @default(now())
 
   @@unique([personId, periodStart, periodEnd])

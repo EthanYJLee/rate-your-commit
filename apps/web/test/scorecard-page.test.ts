@@ -32,6 +32,10 @@ describe("/scorecard page", () => {
         evaluation: 100,
         finalScore: 87.5,
         grade: "A",
+        commitCount: 0,
+        excludedCommitCount: 0,
+        ticketCount: 0,
+        closedTicketCount: 0,
       },
     ]);
     mockPrisma.identity.count.mockResolvedValue(0);
@@ -41,6 +45,55 @@ describe("/scorecard page", () => {
     expect(html).toContain("Alice Real");
     expect(html).toContain("87.5");
     expect(html).toContain(">A<");
+  });
+
+  it("shows '-' for the reference-only commit/ticket columns when there's no activity", async () => {
+    mockPrisma.scoreResult.findMany.mockResolvedValue([
+      {
+        id: "score-1",
+        person: { displayName: "Alice Real" },
+        delivery: 100,
+        quality: 100,
+        collaboration: 100,
+        evaluation: 100,
+        finalScore: 100,
+        grade: "S",
+        commitCount: 0,
+        excludedCommitCount: 0,
+        ticketCount: 0,
+        closedTicketCount: 0,
+      },
+    ]);
+    mockPrisma.identity.count.mockResolvedValue(0);
+
+    const html = renderToStaticMarkup(await ScorecardPage({ searchParams: Promise.resolve({}) }));
+
+    expect(html).toContain(">-<");
+  });
+
+  it("shows commit/ticket counts with excluded/closed breakdowns when there's real activity", async () => {
+    mockPrisma.scoreResult.findMany.mockResolvedValue([
+      {
+        id: "score-1",
+        person: { displayName: "Alice Real" },
+        delivery: 100,
+        quality: 66.7,
+        collaboration: 100,
+        evaluation: 100,
+        finalScore: 90,
+        grade: "S",
+        commitCount: 12,
+        excludedCommitCount: 4,
+        ticketCount: 3,
+        closedTicketCount: 2,
+      },
+    ]);
+    mockPrisma.identity.count.mockResolvedValue(0);
+
+    const html = renderToStaticMarkup(await ScorecardPage({ searchParams: Promise.resolve({}) }));
+
+    expect(html).toContain("12 (이상치 4)");
+    expect(html).toContain("3 (완료 2)");
   });
 
   it("queries scoreResult scoped to the current calendar month", async () => {

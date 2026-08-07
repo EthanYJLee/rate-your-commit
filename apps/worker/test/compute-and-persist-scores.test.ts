@@ -73,6 +73,37 @@ describe("computeAndPersistScores", () => {
     expect(call.create.delivery).toBe(100); // one ticket, closed in-period
     expect(call.create.finalScore).toBe(100);
     expect(call.create.grade).toBe("S");
+    // Reference-only raw activity counts, computed from the same
+    // commit/ticket sets — see ScoreResult's schema doc comment.
+    expect(call.create.commitCount).toBe(1);
+    expect(call.create.excludedCommitCount).toBe(0);
+    expect(call.create.ticketCount).toBe(1);
+    expect(call.create.closedTicketCount).toBe(1);
+  });
+
+  it("persists non-zero excludedCommitCount for an outlier-flagged commit, distinct from the quality percentage", async () => {
+    const inPeriod = new Date(Date.UTC(period.start.getUTCFullYear(), period.start.getUTCMonth(), 10));
+
+    mockPrisma.person.findMany.mockResolvedValue([
+      {
+        id: "person-1",
+        identities: [
+          {
+            commits: [
+              { authoredAt: inPeriod, excludedFlag: true },
+              { authoredAt: inPeriod, excludedFlag: false },
+            ],
+            tickets: [],
+          },
+        ],
+      },
+    ]);
+
+    await computeAndPersistScores(period);
+
+    const call = mockPrisma.scoreResult.upsert.mock.calls[0][0];
+    expect(call.create.commitCount).toBe(2);
+    expect(call.create.excludedCommitCount).toBe(1);
   });
 
   it("upserts using the given period's start/end, not necessarily the current month", async () => {

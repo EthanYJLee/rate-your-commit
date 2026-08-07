@@ -1,6 +1,7 @@
 export { detectOutlierWeeks, DEFAULT_OUTLIER_MULTIPLIER } from "./detectOutlierWeeks";
 export {
   computeAxisMetrics,
+  computeRawActivity,
   NO_ACTIVITY_DEFAULT,
   UNIMPLEMENTED_AXIS_PLACEHOLDER,
 } from "./computeAxisMetrics";
@@ -14,4 +15,5 @@ export type {
   CommitForMetrics,
   TicketForMetrics,
   PeriodRange,
+  RawActivity,
 } from "./types";

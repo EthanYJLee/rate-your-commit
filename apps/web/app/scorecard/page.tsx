@@ -12,6 +12,22 @@ const AXIS_LABEL = {
   evaluation: "동료평가",
 } as const;
 
+/**
+ * Formats the reference-only raw-activity columns (see ScoreResult's
+ * schema doc comment) — plain counts, never part of finalScore.
+ * "-" for zero activity rather than "0 (이상치 0)", to keep the common
+ * case (nothing to flag) visually quiet.
+ */
+function formatCommitCount(commitCount: number, excludedCommitCount: number): string {
+  if (commitCount === 0) return "-";
+  return excludedCommitCount > 0 ? `${commitCount} (이상치 ${excludedCommitCount})` : String(commitCount);
+}
+
+function formatTicketCount(ticketCount: number, closedTicketCount: number): string {
+  if (ticketCount === 0) return "-";
+  return `${ticketCount} (완료 ${closedTicketCount})`;
+}
+
 export default async function ScorecardPage({
   searchParams,
 }: {
@@ -50,7 +66,8 @@ export default async function ScorecardPage({
 
       <p className="hint" style={{ marginBottom: "1.75rem" }}>
         {AXIS_LABEL.collaboration}·{AXIS_LABEL.evaluation} 축은 아직 v1에 구현되지 않아
-        가중치 0으로 계산에 반영되지 않습니다 (참고용 표시). 자세한 내용은{" "}
+        가중치 0으로 계산에 반영되지 않습니다 (참고용 표시). 커밋 수·티켓 수도 점수 계산에는
+        반영되지 않는 원시 활동량 참고 정보입니다. 자세한 내용은{" "}
         <code>docs/ARCHITECTURE.md</code>를 참고하세요.
       </p>
 
@@ -71,6 +88,8 @@ export default async function ScorecardPage({
               <th className="num">{AXIS_LABEL.evaluation}</th>
               <th className="num">최종 점수</th>
               <th className="center">등급</th>
+              <th className="num">커밋 수</th>
+              <th className="num">티켓 수</th>
             </tr>
           </thead>
           <tbody>
@@ -92,6 +111,12 @@ export default async function ScorecardPage({
                 </td>
                 <td className="center">
                   <span className={`badge badge--grade-${result.grade}`}>{result.grade}</span>
+                </td>
+                <td className="num" style={{ color: "var(--ink-faint)" }}>
+                  {formatCommitCount(result.commitCount, result.excludedCommitCount)}
+                </td>
+                <td className="num" style={{ color: "var(--ink-faint)" }}>
+                  {formatTicketCount(result.ticketCount, result.closedTicketCount)}
                 </td>
               </tr>
             ))}

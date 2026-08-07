@@ -46,6 +46,7 @@ import {
 import type { RawCommit, RawIdentity, RawTicket } from "@rateyourcommit/connectors";
 import {
   computeAxisMetrics,
+  computeRawActivity,
   currentMonthPeriod,
   detectOutlierWeeks,
   listMonthsInRange,
@@ -280,6 +281,11 @@ export async function computeAndPersistScores(period: PeriodRange): Promise<numb
     const metrics = computeAxisMetrics(commits, ticketsForMetrics, period);
     const finalScore = calculateScore(metrics, weights);
     const grade = assignGrade(finalScore);
+    // Reference-only counts (see ScoreResult's schema doc comment) —
+    // never fed into finalScore, just the same period-filtered
+    // commit/ticket sets computeAxisMetrics already used, exposed as
+    // plain counts for /scorecard's "커밋 수"/"티켓 수" columns.
+    const rawActivity = computeRawActivity(commits, ticketsForMetrics, period);
 
     await prisma.scoreResult.upsert({
       where: {
@@ -289,8 +295,16 @@ export async function computeAndPersistScores(period: PeriodRange): Promise<numb
           periodEnd: period.end,
         },
       },
-      update: { ...metrics, finalScore, grade },
-      create: { personId: person.id, periodStart: period.start, periodEnd: period.end, ...metrics, finalScore, grade },
+      update: { ...metrics, finalScore, grade, ...rawActivity },
+      create: {
+        personId: person.id,
+        periodStart: period.start,
+        periodEnd: period.end,
+        ...metrics,
+        finalScore,
+        grade,
+        ...rawActivity,
+      },
     });
     scoredCount += 1;
   }

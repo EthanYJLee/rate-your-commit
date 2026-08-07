@@ -1,4 +1,10 @@
-import type { AxisMetrics, CommitForMetrics, PeriodRange, TicketForMetrics } from "./types";
+import type {
+  AxisMetrics,
+  CommitForMetrics,
+  PeriodRange,
+  RawActivity,
+  TicketForMetrics,
+} from "./types";
 
 /**
  * Used whenever a period has zero of the relevant activity (no
@@ -74,5 +80,41 @@ export function computeAxisMetrics(
     quality: computeQuality(commits, period),
     collaboration: UNIMPLEMENTED_AXIS_PLACEHOLDER,
     evaluation: UNIMPLEMENTED_AXIS_PLACEHOLDER,
+  };
+}
+
+/**
+ * Raw, unweighted activity counts for this period — reference-only
+ * context shown alongside the scored axes (e.g. /scorecard's
+ * "커밋 수"/"티켓 수" columns), never fed into finalScore. Deliberately
+ * NOT a "how much did this person do" score: it's just the same
+ * period-filtered commit/ticket sets computeQuality/computeDelivery
+ * already use, exposed as plain counts instead of percentages, so a
+ * reviewer can see "quality=100 because 0 commits this period" vs
+ * "quality=100 because 40 commits, none excluded" are different
+ * situations even though today's axes score them identically.
+ */
+export function computeRawActivity(
+  commits: CommitForMetrics[],
+  tickets: TicketForMetrics[],
+  period: PeriodRange
+): RawActivity {
+  const periodCommits = commits.filter((commit) => isWithin(commit.authoredAt, period));
+  const excludedCommitCount = periodCommits.filter((commit) => commit.excludedFlag).length;
+
+  const activeTickets = tickets.filter(
+    (ticket) =>
+      ticket.createdAt < period.end &&
+      (ticket.closedAt === undefined || ticket.closedAt >= period.start)
+  );
+  const closedTicketCount = activeTickets.filter(
+    (ticket) => ticket.closedAt !== undefined && isWithin(ticket.closedAt, period)
+  ).length;
+
+  return {
+    commitCount: periodCommits.length,
+    excludedCommitCount,
+    ticketCount: activeTickets.length,
+    closedTicketCount,
   };
 }
