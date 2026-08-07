@@ -5,7 +5,12 @@ import { Histogram } from "../components/charts/Histogram";
 import { HorizontalBarChart } from "../components/charts/HorizontalBarChart";
 import { PeriodPicker } from "../components/PeriodPicker";
 import { listAvailablePeriods } from "../lib/available-periods";
-import { parsePeriodParam, periodLabel } from "../lib/period-param";
+import { parsePeriodParam, periodLabel, previousPeriod } from "../lib/period-param";
+import {
+  computeNightWeekendRatio,
+  isBurnoutRisk,
+  isSignificantScoreDrop,
+} from "../lib/risk-signals";
 import { groupScoresByTeam } from "../lib/team-aggregation";
 
 export const dynamic = "force-dynamic";
@@ -50,17 +55,34 @@ export default async function DashboardPage({
   // followed a stale/typed link to.
   const isAdmin = session?.user?.role === "admin";
 
-  const [scoreResults, pendingIdentityCount, outlierCommitCount, availablePeriods] =
+  const [scoreResults, pendingIdentityCount, outlierCommitCount, availablePeriods, previousScoreResults, peopleWithCommits] =
     await Promise.all([
       prisma.scoreResult.findMany({
         where: { periodStart: period.start, periodEnd: period.end },
-        include: { person: { select: { team: { select: { name: true } } } } },
+        include: {
+          person: { select: { displayName: true, team: { select: { name: true } } } },
+        },
       }),
       prisma.identity.count({ where: { personId: null } }),
       prisma.commit.count({
         where: { excludedFlag: true, authoredAt: { gte: period.start, lt: period.end } },
       }),
       listAvailablePeriods(),
+      // S-01 risk alert #1 (score drop) needs last month's score per
+      // person — see lib/risk-signals.ts.
+      prisma.scoreResult.findMany({
+        where: { periodStart: previousPeriod(period).start, periodEnd: previousPeriod(period).end },
+        select: { personId: true, finalScore: true },
+      }),
+      // S-01 risk alert #2 (burnout signal) needs this period's raw
+      // commit timestamps per person, across all of their identities.
+      prisma.person.findMany({
+        include: {
+          identities: {
+            select: { commits: { where: { authoredAt: { gte: period.start, lt: period.end } }, select: { authoredAt: true } } },
+          },
+        },
+      }),
     ]);
 
   const teamAverages = groupScoresByTeam(
@@ -75,6 +97,33 @@ export default async function DashboardPage({
   const gradeCounts: Record<Grade, number> = { S: 0, A: 0, B: 0, C: 0, D: 0 };
   for (const result of scoreResults) {
     if (result.grade in gradeCounts) gradeCounts[result.grade as Grade] += 1;
+  }
+
+  // S-01 리스크 알림 — see lib/risk-signals.ts for what's computable
+  // from real data (score drop, night/weekend commit ratio) vs. not
+  // (동료평가 미제출/MR반려율/품질게이트 have no data source yet).
+  const previousScoreByPersonId = new Map(previousScoreResults.map((r) => [r.personId, r.finalScore]));
+  const riskAlerts: { personId: string; displayName: string; message: string }[] = [];
+  for (const result of scoreResults) {
+    const previousScore = previousScoreByPersonId.get(result.personId);
+    if (previousScore !== undefined && isSignificantScoreDrop(result.finalScore, previousScore)) {
+      riskAlerts.push({
+        personId: result.personId,
+        displayName: result.person.displayName,
+        message: `종합 스코어 급락 (${previousScore} → ${result.finalScore})`,
+      });
+    }
+  }
+  for (const person of peopleWithCommits) {
+    const commits = person.identities.flatMap((identity) => identity.commits);
+    const ratio = computeNightWeekendRatio(commits);
+    if (isBurnoutRisk(ratio)) {
+      riskAlerts.push({
+        personId: person.id,
+        displayName: person.displayName,
+        message: `야간/주말 커밋 비율 ${ratio}% (번아웃 의심)`,
+      });
+    }
   }
 
   return (
@@ -143,6 +192,24 @@ export default async function DashboardPage({
           )}
         </div>
       </div>
+
+      <h2 style={{ fontSize: "1.05rem", margin: "2rem 0 .8rem" }}>리스크 알림</h2>
+      {riskAlerts.length === 0 ? (
+        <p className="empty-state">{periodLabel(period)} 기준 리스크 신호가 감지된 인원이 없습니다.</p>
+      ) : (
+        <ul className="risk-list">
+          {riskAlerts.map((alert, index) => (
+            <li key={`${alert.personId}-${index}`} className="risk-list__item">
+              {isAdmin ? (
+                <a href={`/scorecard/${alert.personId}`}>{alert.displayName}</a>
+              ) : (
+                alert.displayName
+              )}{" "}
+              — {alert.message}
+            </li>
+          ))}
+        </ul>
+      )}
 
       <p className="hint">
         지금 실제로 동작하는 화면은{" "}

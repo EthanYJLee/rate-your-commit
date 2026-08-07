@@ -30,6 +30,13 @@ export function periodLabel(period: PeriodRange): string {
   return `${period.start.getUTCFullYear()}년 ${period.start.getUTCMonth() + 1}월`;
 }
 
+/** The calendar month immediately before `period` — for month-over-
+ * month comparisons (e.g. the dashboard's score-drop risk signal). */
+export function previousPeriod(period: PeriodRange): PeriodRange {
+  const prevMonth = new Date(Date.UTC(period.start.getUTCFullYear(), period.start.getUTCMonth() - 1, 1));
+  return currentMonthPeriod(prevMonth);
+}
+
 /** Just the month, no year — for an <option> nested under a
  * PeriodPicker <optgroup> that already names the year. */
 export function periodMonthLabel(period: PeriodRange): string {

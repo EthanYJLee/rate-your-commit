@@ -6,6 +6,7 @@ import {
   periodLabel,
   periodMonthLabel,
   periodParam,
+  previousPeriod,
 } from "../lib/period-param";
 
 describe("parsePeriodParam", () => {
@@ -71,5 +72,17 @@ describe("groupPeriodsByYear", () => {
     const groups = groupPeriodsByYear([parsePeriodParam("2023-03")]);
     expect([...groups.keys()]).toEqual([2023]);
     expect(groups.get(2023)).toHaveLength(1);
+  });
+});
+
+describe("previousPeriod", () => {
+  it("returns the calendar month immediately before", () => {
+    const period = parsePeriodParam("2026-08");
+    expect(previousPeriod(period)).toEqual(parsePeriodParam("2026-07"));
+  });
+
+  it("rolls back across a year boundary", () => {
+    const period = parsePeriodParam("2026-01");
+    expect(previousPeriod(period)).toEqual(parsePeriodParam("2025-12"));
   });
 });

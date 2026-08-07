@@ -488,6 +488,29 @@ a.stat-card:hover {
   text-decoration: underline;
 }
 
+.risk-list {
+  list-style: none;
+  margin: 0 0 1.5rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+}
+
+.risk-list__item {
+  color: var(--ink);
+  background: var(--warning-soft);
+  border: 1px solid var(--warning);
+  border-radius: var(--radius-sm);
+  padding: .55rem .8rem;
+  font-size: .85rem;
+}
+
+.risk-list__item a {
+  font-weight: 600;
+  color: inherit;
+}
+
 .empty-state {
   color: var(--ink-soft);
   background: var(--surface);
