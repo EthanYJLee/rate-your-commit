@@ -29,3 +29,30 @@ export function periodParam(period: PeriodRange): string {
 export function periodLabel(period: PeriodRange): string {
   return `${period.start.getUTCFullYear()}년 ${period.start.getUTCMonth() + 1}월`;
 }
+
+/** Just the month, no year — for an <option> nested under a
+ * PeriodPicker <optgroup> that already names the year. */
+export function periodMonthLabel(period: PeriodRange): string {
+  return `${period.start.getUTCMonth() + 1}월`;
+}
+
+/**
+ * Groups periods into a Map keyed by year, preserving each period's
+ * relative order — feeds PeriodPicker's <optgroup> rendering, so a
+ * long history (this app now backfills every month since a project's
+ * first commit — see apps/worker#computeAndPersistScoresForAllPeriods)
+ * reads as a year-by-year list instead of one giant flat dropdown.
+ * Map iteration order follows insertion order, so as long as the
+ * input is already newest-first (listAvailablePeriods orders by
+ * periodStart desc), years come out newest-first too — no extra sort.
+ */
+export function groupPeriodsByYear(periods: PeriodRange[]): Map<number, PeriodRange[]> {
+  const groups = new Map<number, PeriodRange[]>();
+  for (const period of periods) {
+    const year = period.start.getUTCFullYear();
+    const existing = groups.get(year);
+    if (existing) existing.push(period);
+    else groups.set(year, [period]);
+  }
+  return groups;
+}

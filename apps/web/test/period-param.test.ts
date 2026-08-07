@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { currentMonthPeriod } from "@rateyourcommit/metrics";
-import { parsePeriodParam, periodLabel, periodParam } from "../lib/period-param";
+import {
+  groupPeriodsByYear,
+  parsePeriodParam,
+  periodLabel,
+  periodMonthLabel,
+  periodParam,
+} from "../lib/period-param";
 
 describe("parsePeriodParam", () => {
   it("parses a valid YYYY-MM into that month's PeriodRange", () => {
@@ -34,5 +40,36 @@ describe("periodParam / periodLabel", () => {
   it("formats a human-readable Korean label", () => {
     const period = parsePeriodParam("2026-08");
     expect(periodLabel(period)).toBe("2026년 8월");
+  });
+
+  it("periodMonthLabel formats just the month, no year", () => {
+    const period = parsePeriodParam("2026-08");
+    expect(periodMonthLabel(period)).toBe("8월");
+  });
+});
+
+describe("groupPeriodsByYear", () => {
+  it("groups periods under their year, preserving relative order within a year", () => {
+    const periods = [
+      parsePeriodParam("2026-08"),
+      parsePeriodParam("2026-07"),
+      parsePeriodParam("2025-12"),
+    ];
+
+    const groups = groupPeriodsByYear(periods);
+
+    expect([...groups.keys()]).toEqual([2026, 2025]);
+    expect(groups.get(2026)?.map(periodParam)).toEqual(["2026-08", "2026-07"]);
+    expect(groups.get(2025)?.map(periodParam)).toEqual(["2025-12"]);
+  });
+
+  it("returns an empty map for an empty input", () => {
+    expect(groupPeriodsByYear([]).size).toBe(0);
+  });
+
+  it("puts a single period into its own single-entry group", () => {
+    const groups = groupPeriodsByYear([parsePeriodParam("2023-03")]);
+    expect([...groups.keys()]).toEqual([2023]);
+    expect(groups.get(2023)).toHaveLength(1);
   });
 });

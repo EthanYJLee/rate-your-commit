@@ -130,7 +130,7 @@ describe("/scorecard/[personId] page", () => {
   });
 
   it("uses the ?period= query param to show a historical period instead of the current month", async () => {
-    mockPrisma.person.findUnique.mockResolvedValue({ id: "p1", displayName: "LeeHosik", employeeId: null });
+    mockPrisma.person.findUnique.mockResolvedValue({ id: "p1", displayName: "Bob", employeeId: null });
     mockPrisma.scoreResult.findUnique.mockResolvedValue({
       delivery: 100,
       quality: 33.3,
