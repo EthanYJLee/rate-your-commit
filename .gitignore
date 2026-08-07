@@ -36,5 +36,14 @@ yarn-error.log*
 # prisma
 packages/db/prisma/dev.db
 
+# apps/web's local AI-assistant instruction files — personal/local
+# customization, never tracked (previously committed only as
+# `@AGENTS.md`, so any real edits underneath always looked like an
+# uncommitted diff and kept getting mistaken for stray noise and
+# reverted across sessions; gitignoring keeps them out of git's view
+# entirely instead).
+apps/web/CLAUDE.md
+apps/web/AGENTS.md
+
 # testing
 coverage/
