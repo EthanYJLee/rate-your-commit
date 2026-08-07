@@ -125,4 +125,34 @@ describe("/scorecard page", () => {
 
     expect(html).not.toContain("미해결 아이덴티티가");
   });
+
+  it("carries the currently-selected period into each person's detail-page link", async () => {
+    mockPrisma.scoreResult.findMany.mockResolvedValue([
+      {
+        id: "score-1",
+        personId: "person-1",
+        person: { displayName: "Alice Real" },
+        delivery: 100,
+        quality: 33.3,
+        collaboration: 100,
+        evaluation: 100,
+        finalScore: 73.3,
+        grade: "B",
+        commitCount: 3,
+        excludedCommitCount: 2,
+        ticketCount: 0,
+        closedTicketCount: 0,
+      },
+    ]);
+    mockPrisma.identity.count.mockResolvedValue(0);
+
+    const html = renderToStaticMarkup(
+      await ScorecardPage({ searchParams: Promise.resolve({ period: "2023-03" }) })
+    );
+
+    // Regression guard: clicking a person from a historical period used
+    // to silently drop the period and land on /scorecard/[personId]
+    // showing the CURRENT month instead of the one being viewed.
+    expect(html).toContain('href="/scorecard/person-1?period=2023-03"');
+  });
 });

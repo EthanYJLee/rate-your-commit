@@ -1,7 +1,7 @@
 import { prisma } from "@rateyourcommit/db";
 import { PeriodPicker } from "../../components/PeriodPicker";
 import { listAvailablePeriods } from "../../lib/available-periods";
-import { parsePeriodParam, periodLabel } from "../../lib/period-param";
+import { parsePeriodParam, periodLabel, periodParam } from "../../lib/period-param";
 
 export const dynamic = "force-dynamic";
 
@@ -96,7 +96,9 @@ export default async function ScorecardPage({
             {results.map((result) => (
               <tr key={result.id}>
                 <td>
-                  <a href={`/scorecard/${result.personId}`}>{result.person.displayName}</a>
+                  <a href={`/scorecard/${result.personId}?period=${periodParam(period)}`}>
+                    {result.person.displayName}
+                  </a>
                 </td>
                 <td className="num">{result.delivery}</td>
                 <td className="num">{result.quality}</td>
