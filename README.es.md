@@ -60,11 +60,13 @@ Abre `http://localhost:3000` → conecta un repositorio → revisa tu primer das
 
 ## Hoja de ruta
 
-- [x] **0.0.1** — Diseño de pantallas, diseño de arquitectura, licencia/gobernanza, README, andamiaje inicial del repositorio (versión actual)
-- [ ] v1.0 — Mapeo de identidades + integración de Git/issue tracker + scorecard personal (conector de GitHub)
-- [ ] v1.1 — Conectores de GitLab / Jira / Linear
+- [x] **0.0.1** — Diseño de pantallas, diseño de arquitectura, licencia/gobernanza, README, andamiaje inicial del repositorio
+- [x] **v1.0** — Mapeo de identidades + integración de Git/issue tracker + scorecard personal (conector de GitHub)
+- [x] **v1.1** — Conectores de GitLab / Jira / Linear
+- [x] **v1.2** — Inicio de sesión con email/contraseña, control de acceso basado en roles (admin/member), protección CSRF (versión actual)
+- [x] **v1.3** — Jerarquía de equipos, alertas de riesgo en el dashboard, flujo de confirmación/finalización de nivel de compensación
 - [ ] v2.0 — Módulo de evaluación entre pares (360°)
-- [ ] v2.1 — Módulo de reporte de nivel de compensación (reglas personalizadas por organización)
+- [ ] v2.1 — Pantalla de agregación de desempeño por proyecto, flujo de aprobación en dos etapas para compensación (PM → RRHH)
 - [ ] RateYourCommit Cloud — hosting gestionado + funcionalidades asistidas por LLM (de pago)
 
 ## Cómo contribuir

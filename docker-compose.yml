@@ -8,8 +8,20 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-rateyourcommit}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
+    # No host port published on purpose — web/worker reach Postgres over
+    # the internal Docker network only. Publishing 5432 to the host by
+    # default is a real footgun for anyone deploying on a cloud VM
+    # without their own firewall rules, especially paired with the
+    # POSTGRES_PASSWORD default above. Uncomment only if you specifically
+    # need host-machine access (e.g. `psql` from outside the containers)
+    # AND you've set a real POSTGRES_PASSWORD in .env:
+    # ports:
+    #   - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-rateyourcommit}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   web:
     build:
@@ -22,7 +34,8 @@ services:
     ports:
       - "3000:3000"
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
 
   worker:
     build:
@@ -33,7 +46,8 @@ services:
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER:-rateyourcommit}:${POSTGRES_PASSWORD:-rateyourcommit}@postgres:5432/${POSTGRES_DB:-rateyourcommit}
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
 
 volumes:
   postgres_data:

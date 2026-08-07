@@ -1,0 +1,6 @@
+# See CONTRIBUTING.md's "채점 로직(packages/scoring) 관련 PR 규칙" —
+# this project's trust rests on the promise that scoring is transparent
+# and reviewed, so packages/scoring requires an explicit code-owner
+# approval on every PR (GitHub enforces this only if branch protection
+# has "Require review from Code Owners" enabled on `main`).
+/packages/scoring/ @EthanYJLee

@@ -60,11 +60,13 @@ Open `http://localhost:3000` → connect a repo → check your first dashboard a
 
 ## Roadmap
 
-- [x] **0.0.1** — Screen design, architecture design, license/governance, README, initial repo scaffolding (current version)
-- [ ] v1.0 — Identity mapping + Git/issue-tracker integration + personal scorecard (GitHub connector)
-- [ ] v1.1 — GitLab / Jira / Linear connectors
+- [x] **0.0.1** — Screen design, architecture design, license/governance, README, initial repo scaffolding
+- [x] **v1.0** — Identity mapping + Git/issue-tracker integration + personal scorecard (GitHub connector)
+- [x] **v1.1** — GitLab / Jira / Linear connectors
+- [x] **v1.2** — Email/password login, role-based access control (admin/member), CSRF protection (current version)
+- [x] **v1.3** — Team hierarchy, dashboard risk alerts, compensation-grade confirm/finalize workflow
 - [ ] v2.0 — Peer evaluation (360°) module
-- [ ] v2.1 — Compensation-grade report module (org-specific custom rules)
+- [ ] v2.1 — Per-project performance aggregation screen, two-stage compensation approval (PM → HR)
 - [ ] RateYourCommit Cloud — managed hosting + LLM-assisted features (paid)
 
 ## Contributing
