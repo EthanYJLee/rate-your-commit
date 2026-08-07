@@ -39,6 +39,34 @@ describe("POST /api/settings/app-users", () => {
     expect(createArgs.data.passwordHash.split(":")).toHaveLength(2);
   });
 
+  it("defaults role to member when the form omits it", async () => {
+    mockPrisma.appUser.create.mockResolvedValue({ id: "user-1", email: "alice@example.com" });
+
+    await POST(formRequest({ email: "alice@example.com", password: VALID_PASSWORD }));
+
+    expect(mockPrisma.appUser.create.mock.calls[0][0].data.role).toBe("member");
+  });
+
+  it("honors an explicit admin role from the form", async () => {
+    mockPrisma.appUser.create.mockResolvedValue({ id: "user-1", email: "alice@example.com" });
+
+    await POST(
+      formRequest({ email: "alice@example.com", password: VALID_PASSWORD, role: "admin" })
+    );
+
+    expect(mockPrisma.appUser.create.mock.calls[0][0].data.role).toBe("admin");
+  });
+
+  it("falls back to member for an invalid role value rather than trusting raw input", async () => {
+    mockPrisma.appUser.create.mockResolvedValue({ id: "user-1", email: "alice@example.com" });
+
+    await POST(
+      formRequest({ email: "alice@example.com", password: VALID_PASSWORD, role: "superadmin" })
+    );
+
+    expect(mockPrisma.appUser.create.mock.calls[0][0].data.role).toBe("member");
+  });
+
   it("rejects a password shorter than the minimum length", async () => {
     const res = await POST(formRequest({ email: "alice@example.com", password: "short" }));
 

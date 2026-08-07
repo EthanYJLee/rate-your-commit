@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { Session } from "next-auth";
-import { attachLoginToSession, attachLoginToToken, attachPersonIdToToken } from "../lib/auth-session";
+import {
+  attachLoginToSession,
+  attachLoginToToken,
+  attachPersonIdToToken,
+  attachProviderToToken,
+  attachRoleToToken,
+} from "../lib/auth-session";
 
 describe("attachLoginToToken", () => {
   it("copies profile.login onto the token", () => {
@@ -63,6 +69,72 @@ describe("attachPersonIdToToken", () => {
   });
 });
 
+describe("attachRoleToToken", () => {
+  it("computes the role from GitHub's admin-login list on a fresh GitHub sign-in", () => {
+    const token = attachRoleToToken({}, { login: "alice" }, undefined, ["alice"]);
+    expect(token.role).toBe("admin");
+  });
+
+  it("demotes a GitHub login not in the admin list to member", () => {
+    const token = attachRoleToToken({}, { login: "carol" }, undefined, ["alice"]);
+    expect(token.role).toBe("member");
+  });
+
+  it("grandfathers a GitHub login to admin when the admin list is empty", () => {
+    const token = attachRoleToToken({}, { login: "carol" }, undefined, []);
+    expect(token.role).toBe("admin");
+  });
+
+  it("uses the AppUser's own role on a fresh Credentials sign-in", () => {
+    const token = attachRoleToToken({}, undefined, { role: "member" }, ["alice"]);
+    expect(token.role).toBe("member");
+  });
+
+  it("prefers the GitHub profile branch over user.role when both are present", () => {
+    const token = attachRoleToToken({}, { login: "alice" }, { role: "member" }, ["alice"]);
+    expect(token.role).toBe("admin");
+  });
+
+  it("leaves an existing token's role untouched when neither profile nor user is present (session refresh)", () => {
+    const token = attachRoleToToken({ role: "admin" }, undefined, undefined, []);
+    expect(token.role).toBe("admin");
+  });
+
+  it("does not mutate the input token", () => {
+    const original = {};
+    attachRoleToToken(original, { login: "alice" }, undefined, ["alice"]);
+    expect(original).toEqual({});
+  });
+});
+
+describe("attachProviderToToken", () => {
+  it("records github on a fresh GitHub sign-in", () => {
+    const token = attachProviderToToken({}, { provider: "github" });
+    expect(token.provider).toBe("github");
+  });
+
+  it("records credentials on a fresh Credentials sign-in", () => {
+    const token = attachProviderToToken({}, { provider: "credentials" });
+    expect(token.provider).toBe("credentials");
+  });
+
+  it("leaves the token unchanged when account is undefined (session refresh, not a fresh sign-in)", () => {
+    const token = attachProviderToToken({ provider: "github" }, undefined);
+    expect(token.provider).toBe("github");
+  });
+
+  it("ignores an unrecognized provider value", () => {
+    const token = attachProviderToToken({}, { provider: "some-other-provider" });
+    expect(token.provider).toBeUndefined();
+  });
+
+  it("does not mutate the input token", () => {
+    const original = {};
+    attachProviderToToken(original, { provider: "github" });
+    expect(original).toEqual({});
+  });
+});
+
 describe("attachLoginToSession", () => {
   it("copies token.login onto session.user", () => {
     const session = attachLoginToSession(
@@ -112,5 +184,39 @@ describe("attachLoginToSession", () => {
       { login: "octocat" },
     );
     expect(session.user?.personId).toBeUndefined();
+  });
+
+  it("copies token.role onto session.user", () => {
+    const session = attachLoginToSession(
+      { user: { name: "Alice" }, expires: "2099-01-01" },
+      { login: "octocat", role: "admin" },
+    );
+    expect(session.user?.role).toBe("admin");
+  });
+
+  it("leaves session.user.role undefined when the token has none", () => {
+    const session = attachLoginToSession(
+      { user: { name: "Alice" }, expires: "2099-01-01" },
+      { login: "octocat" },
+    );
+    expect(session.user?.role).toBeUndefined();
+  });
+
+  it("copies token.provider and token.sub (as user.id) onto session.user", () => {
+    const session = attachLoginToSession(
+      { user: { name: "Alice" }, expires: "2099-01-01" },
+      { login: "alice@example.com", provider: "credentials", sub: "user-1" },
+    );
+    expect(session.user?.provider).toBe("credentials");
+    expect(session.user?.id).toBe("user-1");
+  });
+
+  it("leaves session.user.provider/id undefined when the token has neither", () => {
+    const session = attachLoginToSession(
+      { user: { name: "Alice" }, expires: "2099-01-01" },
+      { login: "octocat" },
+    );
+    expect(session.user?.provider).toBeUndefined();
+    expect(session.user?.id).toBeUndefined();
   });
 });

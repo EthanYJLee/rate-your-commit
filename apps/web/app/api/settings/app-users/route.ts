@@ -1,8 +1,10 @@
 import { prisma } from "@rateyourcommit/db";
 import { NextRequest, NextResponse } from "next/server";
+import type { AppRole } from "../../../../lib/admin-role";
 import { hashPassword, MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH } from "../../../../lib/password";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const VALID_ROLES: AppRole[] = ["admin", "member"];
 
 /**
  * Admin-provisions an email/password sign-in account (see auth.ts —
@@ -37,9 +39,16 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // Defaults to "member" on any missing/invalid value — an admin must
+  // explicitly opt a new account into "admin" via the form's select,
+  // matching the secure-by-default posture confirmed for this feature
+  // (only pre-existing rows were grandfathered to admin, by the
+  // migration's backfill, not new ones).
+  const role: AppRole = VALID_ROLES.includes(raw.role as AppRole) ? (raw.role as AppRole) : "member";
+
   try {
     const passwordHash = await hashPassword(password);
-    const user = await prisma.appUser.create({ data: { email, passwordHash } });
+    const user = await prisma.appUser.create({ data: { email, passwordHash, role } });
 
     if (!contentType.includes("application/json")) {
       return NextResponse.redirect(new URL("/settings/app-users", request.url), { status: 303 });

@@ -35,15 +35,20 @@ function StatCard({ label, value, href }: { label: string; value: string; href?:
 export default async function DashboardPage({
   searchParams,
 }: {
-  searchParams: Promise<{ period?: string }>;
+  searchParams: Promise<{ period?: string; error?: string }>;
 }) {
-  const { period: periodParamValue } = await searchParams;
+  const { period: periodParamValue, error } = await searchParams;
   const period = parsePeriodParam(periodParamValue);
   const session = await auth();
   // Set only for a Credentials (AppUser) sign-in an admin has linked
   // to a Person on /settings/app-users — convenience only, see
   // AppUser.personId's schema doc comment.
   const myPersonId = session?.user?.personId;
+  // Gates the admin-only links below (UX only — proxy.ts is the real
+  // enforcement, see lib/request-guard.ts). `error` is populated when
+  // proxy.ts bounces a member away from an admin-only page they
+  // followed a stale/typed link to.
+  const isAdmin = session?.user?.role === "admin";
 
   const [scoreResults, pendingIdentityCount, outlierCommitCount, availablePeriods] =
     await Promise.all([
@@ -80,6 +85,8 @@ export default async function DashboardPage({
         아래 세 지표는 S-07·S-04·S-02 화면의 데이터를 그대로 집계한 값입니다.
       </p>
 
+      {error && <p className="error-banner">{error}</p>}
+
       <PeriodPicker action="/" selected={period} availablePeriods={availablePeriods} />
 
       {myPersonId && (
@@ -94,7 +101,11 @@ export default async function DashboardPage({
           value={averageScore !== null ? String(averageScore) : "—"}
           href="/scorecard"
         />
-        <StatCard label="미해결 아이덴티티 큐" value={String(pendingIdentityCount)} href="/identities" />
+        <StatCard
+          label="미해결 아이덴티티 큐"
+          value={String(pendingIdentityCount)}
+          href={isAdmin ? "/identities" : undefined}
+        />
         <StatCard label={`${periodLabel(period)} LOC 이상치 커밋`} value={String(outlierCommitCount)} />
       </div>
 
@@ -134,11 +145,20 @@ export default async function DashboardPage({
       </div>
 
       <p className="hint">
-        지금 실제로 동작하는 화면은 <a href="/identities">아이덴티티 매핑 큐(S-07)</a>,{" "}
-        <a href="/scorecard">개인 스코어카드(S-02)</a>,{" "}
-        <a href="/settings/weights">축 가중치 설정</a>,{" "}
-        <a href="/settings/teams">팀 설정</a> 넷입니다. 자세한 내용은{" "}
-        <code>docs/ARCHITECTURE.md</code>를 참고하세요.
+        지금 실제로 동작하는 화면은{" "}
+        {isAdmin && (
+          <>
+            <a href="/identities">아이덴티티 매핑 큐(S-07)</a>,{" "}
+          </>
+        )}
+        <a href="/scorecard">개인 스코어카드(S-02)</a>
+        {isAdmin && (
+          <>
+            , <a href="/settings/weights">축 가중치 설정</a>,{" "}
+            <a href="/settings/teams">팀 설정</a>
+          </>
+        )}
+        입니다. 자세한 내용은 <code>docs/ARCHITECTURE.md</code>를 참고하세요.
       </p>
     </main>
   );

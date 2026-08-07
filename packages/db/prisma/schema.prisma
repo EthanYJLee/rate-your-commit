@@ -182,17 +182,29 @@ model ScoreResult {
 /// same fail-closed philosophy as ALLOWED_GITHUB_LOGINS. Not linked
 /// to Person; that's a separate, not-yet-built concern.
 model AppUser {
-  id           String   @id @default(cuid())
-  email        String   @unique
+  id           String      @id @default(cuid())
+  email        String      @unique
   /// scrypt(password, salt), stored as "saltHex:hashHex" — see
   /// apps/web/lib/password.ts. Never a plaintext password.
   passwordHash String
+  /// admin/member RBAC (see apps/web/lib/request-guard.ts for what
+  /// each level can reach). Defaults to "member" for newly-created
+  /// rows going forward — the /settings/app-users creation form lets
+  /// an existing admin explicitly pick "admin" instead. The migration
+  /// that introduced this column backfilled every pre-existing row to
+  /// "admin", since they were provisioned back when the app had no
+  /// role concept at all and already had full access.
+  role         AppUserRole @default(member)
   /// Null until an admin links this account to a real Person on
   /// /settings/app-users. Convenience only — surfaces a "내 스코어카드"
-  /// link on the dashboard for the linked person; the app has no
-  /// role/access-control system (deliberately, see backlog), so this
-  /// does NOT restrict what this account can see or do.
-  person       Person?  @relation(fields: [personId], references: [id])
+  /// link on the dashboard for the linked person; unrelated to `role`
+  /// above, which IS the access-control mechanism.
+  person       Person?     @relation(fields: [personId], references: [id])
   personId     String?
-  createdAt    DateTime @default(now())
+  createdAt    DateTime    @default(now())
+}
+
+enum AppUserRole {
+  admin
+  member
 }

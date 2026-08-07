@@ -29,11 +29,17 @@ describe("authenticateAppUser", () => {
       email: "alice@example.com",
       passwordHash,
       personId: null,
+      role: "member",
     });
 
     const result = await authenticateAppUser("alice@example.com", "correct-horse-battery-staple");
 
-    expect(result).toEqual({ id: "user-1", email: "alice@example.com", personId: null });
+    expect(result).toEqual({
+      id: "user-1",
+      email: "alice@example.com",
+      personId: null,
+      role: "member",
+    });
   });
 
   it("normalizes email case/whitespace before looking up", async () => {
@@ -43,6 +49,7 @@ describe("authenticateAppUser", () => {
       email: "alice@example.com",
       passwordHash,
       personId: null,
+      role: "member",
     });
 
     await authenticateAppUser("  Alice@Example.com  ", "correct-horse-battery-staple");
@@ -59,6 +66,7 @@ describe("authenticateAppUser", () => {
       email: "alice@example.com",
       passwordHash,
       personId: null,
+      role: "member",
     });
 
     const result = await authenticateAppUser("alice@example.com", "totally-wrong");
@@ -79,6 +87,7 @@ describe("authenticateAppUser", () => {
       email: "alice@example.com",
       passwordHash,
       personId: null,
+      role: "member",
     });
 
     for (let i = 0; i < 5; i++) {
@@ -108,6 +117,7 @@ describe("authenticateAppUser", () => {
       email: "alice@example.com",
       passwordHash,
       personId: null,
+      role: "member",
     });
 
     await authenticateAppUser("alice@example.com", "wrong-password");
@@ -121,7 +131,12 @@ describe("authenticateAppUser", () => {
       await authenticateAppUser("alice@example.com", "wrong-password");
     }
     const result = await authenticateAppUser("alice@example.com", "correct-horse-battery-staple");
-    expect(result).toEqual({ id: "user-1", email: "alice@example.com", personId: null });
+    expect(result).toEqual({
+      id: "user-1",
+      email: "alice@example.com",
+      personId: null,
+      role: "member",
+    });
   });
 
   it("returns null (not throw) for a missing/empty email or password", async () => {
@@ -136,11 +151,27 @@ describe("authenticateAppUser", () => {
       email: "alice@example.com",
       passwordHash,
       personId: "person-1",
+      role: "member",
     });
 
     const result = await authenticateAppUser("alice@example.com", "correct-horse-battery-staple");
 
     expect(result?.personId).toBe("person-1");
+  });
+
+  it("returns the row's admin role when the account was provisioned as admin", async () => {
+    const passwordHash = await hashPassword("correct-horse-battery-staple");
+    mockPrisma.appUser.findUnique.mockResolvedValue({
+      id: "user-1",
+      email: "alice@example.com",
+      passwordHash,
+      personId: null,
+      role: "admin",
+    });
+
+    const result = await authenticateAppUser("alice@example.com", "correct-horse-battery-staple");
+
+    expect(result?.role).toBe("admin");
   });
 
   it("rejects an oversized password before doing any DB lookup or hashing (CPU-exhaustion guard)", async () => {

@@ -26,7 +26,13 @@ describe("/settings/app-users page", () => {
 
   it("lists each account by email with a revoke action, selecting only non-sensitive fields", async () => {
     mockPrisma.appUser.findMany.mockResolvedValue([
-      { id: "user-1", email: "alice@example.com", createdAt: new Date("2026-01-01"), personId: null },
+      {
+        id: "user-1",
+        email: "alice@example.com",
+        createdAt: new Date("2026-01-01"),
+        personId: null,
+        role: "member",
+      },
     ]);
     mockPrisma.person.findMany.mockResolvedValue([]);
 
@@ -35,8 +41,37 @@ describe("/settings/app-users page", () => {
     expect(html).toContain("alice@example.com");
     expect(html).toContain('action="/api/settings/app-users/user-1/revoke"');
     expect(mockPrisma.appUser.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ select: { id: true, email: true, createdAt: true, personId: true } })
+      expect.objectContaining({
+        select: { id: true, email: true, createdAt: true, personId: true, role: true },
+      })
     );
+  });
+
+  it("shows each account's role in the list", async () => {
+    mockPrisma.appUser.findMany.mockResolvedValue([
+      {
+        id: "user-1",
+        email: "alice@example.com",
+        createdAt: new Date("2026-01-01"),
+        personId: null,
+        role: "admin",
+      },
+    ]);
+    mockPrisma.person.findMany.mockResolvedValue([]);
+
+    const html = renderToStaticMarkup(await AppUsersSettingsPage(props()));
+
+    expect(html).toContain("관리자");
+  });
+
+  it("offers a role selector on the creation form, defaulting to member", async () => {
+    mockPrisma.appUser.findMany.mockResolvedValue([]);
+    mockPrisma.person.findMany.mockResolvedValue([]);
+
+    const html = renderToStaticMarkup(await AppUsersSettingsPage(props()));
+
+    expect(html).toContain('name="role"');
+    expect(html).toContain('value="member" selected');
   });
 
   it("renders the error message from the query param, when present", async () => {

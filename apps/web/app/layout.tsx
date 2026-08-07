@@ -24,7 +24,7 @@ export default async function RootLayout({
             <a href="/" className="topnav__brand">
               RateYourCommit
             </a>
-            <NavLinks />
+            <NavLinks role={session.user?.role} />
             <div className="topnav__user">
               <span>{session.user?.name ?? session.user?.email}</span>
               <form

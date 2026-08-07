@@ -1,4 +1,5 @@
 import { prisma } from "@rateyourcommit/db";
+import type { AppRole } from "./admin-role";
 import { checkAndConsumeAttempt, clearFailedAttempts } from "./login-rate-limit";
 import { MAX_PASSWORD_LENGTH, verifyPassword } from "./password";
 
@@ -8,6 +9,8 @@ export interface AuthenticatedAppUser {
   /** Null unless an admin linked this account to a Person on
    * /settings/app-users — see AppUser.personId's schema doc comment. */
   personId: string | null;
+  /** admin/member RBAC — see AppUser.role's schema doc comment. */
+  role: AppRole;
 }
 
 /**
@@ -45,5 +48,5 @@ export async function authenticateAppUser(
   if (!isValid) return null;
 
   clearFailedAttempts(normalizedEmail);
-  return { id: user.id, email: user.email, personId: user.personId };
+  return { id: user.id, email: user.email, personId: user.personId, role: user.role };
 }

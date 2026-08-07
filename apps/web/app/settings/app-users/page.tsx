@@ -28,7 +28,7 @@ export default async function AppUsersSettingsPage({
   const [users, people] = await Promise.all([
     prisma.appUser.findMany({
       orderBy: { createdAt: "asc" },
-      select: { id: true, email: true, createdAt: true, personId: true },
+      select: { id: true, email: true, createdAt: true, personId: true, role: true },
     }),
     prisma.person.findMany({ orderBy: { displayName: "asc" } }),
   ]);
@@ -61,6 +61,10 @@ export default async function AppUsersSettingsPage({
           minLength={MIN_PASSWORD_LENGTH}
           required
         />
+        <select name="role" defaultValue="member" className="select">
+          <option value="member">일반(member)</option>
+          <option value="admin">관리자(admin)</option>
+        </select>
         <button type="submit" className="button button--primary">
           계정 발급
         </button>
@@ -74,6 +78,7 @@ export default async function AppUsersSettingsPage({
             <tr>
               <th>이메일</th>
               <th>발급일</th>
+              <th>역할</th>
               <th>연결된 인물</th>
               <th></th>
             </tr>
@@ -83,6 +88,7 @@ export default async function AppUsersSettingsPage({
               <tr key={user.id}>
                 <td>{user.email}</td>
                 <td>{user.createdAt.toISOString().slice(0, 10)}</td>
+                <td>{user.role === "admin" ? "관리자" : "일반"}</td>
                 <td>
                   <form
                     action={`/api/settings/app-users/${user.id}/person`}

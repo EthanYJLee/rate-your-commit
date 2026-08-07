@@ -79,15 +79,42 @@ describe("/ dashboard page", () => {
     expect(call.where.authoredAt.lt.getTime()).toBeGreaterThan(call.where.authoredAt.gte.getTime());
   });
 
-  it("links each stat to its source screen", async () => {
+  it("links each stat to its source screen for an admin", async () => {
     mockPrisma.scoreResult.findMany.mockResolvedValue([]);
     mockPrisma.identity.count.mockResolvedValue(0);
     mockPrisma.commit.count.mockResolvedValue(0);
+    mockAuth.mockResolvedValueOnce({ user: { role: "admin" } });
 
     const html = renderToStaticMarkup(await DashboardPage({ searchParams: Promise.resolve({}) }));
 
     expect(html).toContain('href="/scorecard"');
     expect(html).toContain('href="/identities"');
+  });
+
+  it("does not link the identity-queue stat (or show the identities/settings hints) for a member", async () => {
+    mockPrisma.scoreResult.findMany.mockResolvedValue([]);
+    mockPrisma.identity.count.mockResolvedValue(0);
+    mockPrisma.commit.count.mockResolvedValue(0);
+    mockAuth.mockResolvedValueOnce({ user: { role: "member" } });
+
+    const html = renderToStaticMarkup(await DashboardPage({ searchParams: Promise.resolve({}) }));
+
+    expect(html).toContain('href="/scorecard"');
+    expect(html).not.toContain('href="/identities"');
+    expect(html).not.toContain('href="/settings/weights"');
+    expect(html).not.toContain('href="/settings/teams"');
+  });
+
+  it("renders the error message from the query param, when present (e.g. a member bounced off an admin-only page)", async () => {
+    mockPrisma.scoreResult.findMany.mockResolvedValue([]);
+    mockPrisma.identity.count.mockResolvedValue(0);
+    mockPrisma.commit.count.mockResolvedValue(0);
+
+    const html = renderToStaticMarkup(
+      await DashboardPage({ searchParams: Promise.resolve({ error: "관리자 전용 페이지입니다." }) })
+    );
+
+    expect(html).toContain("관리자 전용 페이지입니다.");
   });
 
   it("renders a score-distribution histogram bucketed from finalScore", async () => {
